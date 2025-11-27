@@ -19,6 +19,15 @@
       }
     ],
     "no-console": "off",
-    "class-methods-use-this": "off"
-  }
+    "class-methods-use-this": "off",
+    "cypress/unsafe-to-chain-command": "off"
+  },
+  "overrides": [
+    {
+      "files": ["cypress.config.js"],
+      "rules": {
+        "import/no-unresolved": "off"
+      }
+    }
+  ]
 }
