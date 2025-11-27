@@ -1,11 +1,11 @@
 import { Given, When, Then } from '@badeball/cypress-cucumber-preprocessor';
 import RegisterPage from '../pages/RegisterPage';
 import LoginPage from '../pages/LoginPage';
-import { randomEmail } from '../../support/helpers';
+import { randomEmail, randomPassword } from '../../support/helpers';
 
 function createDynamicUser() {
   const email = randomEmail('serverest_user');
-  const password = 'P@ssword123';
+  const password = randomPassword();
   const name = 'Test User';
   Cypress.env('user', { email, password, name });
   return { email, password, name };

@@ -14,16 +14,16 @@ class LoginPage {
   }
 
   fillEmail(email) {
-    cy.getByTestId(selectors.email).clear().type(email);
+    cy.getByTestId(selectors.email).clear().safeType(email);
   }
 
   fillPassword(password) {
     // Login password field might be 'senha'
     cy.getByTestId(selectors.password, { timeout: 2000 }).then(($els) => {
       if ($els.length) {
-        cy.wrap($els.first()).clear().type(password);
+        cy.wrap($els.first()).clear().safeType(password);
       } else {
-        cy.getByTestId(selectors.fallbackPassword).clear().type(password);
+        cy.getByTestId(selectors.fallbackPassword).clear().safeType(password);
       }
     });
   }

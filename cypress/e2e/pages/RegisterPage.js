@@ -20,8 +20,7 @@ class RegisterPage {
   }
 
   fillEmail(email) {
-    // Some implementations may use 'email' test id on register form as well
-    cy.getByTestId(selectors.email).clear().type(email);
+    cy.getByTestId(selectors.email).clear().safeType(email);
   }
 
   fillPassword(password) {
@@ -29,9 +28,9 @@ class RegisterPage {
     // We attempt both to increase robustness.
     cy.getByTestId(selectors.password, { timeout: 2000 }).then(($els) => {
       if ($els.length) {
-        cy.wrap($els.first()).clear().type(password);
+        cy.wrap($els.first()).clear().safeType(password);
       } else {
-        cy.getByTestId(selectors.fallbackPassword).clear().type(password);
+        cy.getByTestId(selectors.fallbackPassword).clear().safeType(password);
       }
     });
   }
