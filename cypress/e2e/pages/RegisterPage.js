@@ -1,5 +1,3 @@
-import { dataTestId } from '../../support/helpers';
-
 const selectors = {
   name: 'nome',
   email: 'email',

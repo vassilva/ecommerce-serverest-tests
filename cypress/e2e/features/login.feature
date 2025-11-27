@@ -31,6 +31,9 @@ Feature: Login and Account Creation
     When I try to log in with email "invalid@test.com" and password "wrong123"
     Then I should see a login error message
 
+
+  
+
   @login_failed_outline
   Scenario Outline: Login falha em múltiplas combinações
     Given I am on the login page
