@@ -1,0 +1,46 @@
+{
+  "name": "ecommerce-serverest-tests",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Senior-grade BDD test automation project for Serverest E-commerce using Cypress + Cucumber (POM, ESLint, Prettier, CI).",
+  "scripts": {
+    "prepare": "husky install",
+    "cypress:open": "cypress open",
+    "cy:open": "npm run cypress:open",
+    "cypress:run": "cypress run",
+    "test": "npm run cypress:open",
+    "test:headless": "cypress run --browser chrome --headless",
+    "report:merge": "npx mochawesome-merge cypress/reports/mocha/*.json -o cypress/reports/mochawesome.json",
+    "report:generate": "npx marge cypress/reports/mochawesome.json -f index -o cypress/reports/html",
+    "report": "npm run report:merge && npm run report:generate",
+    "lint": "eslint . --ext .js,.cjs --max-warnings=0",
+    "format": "prettier --write ."
+  },
+  "devDependencies": {
+    "@badeball/cypress-cucumber-preprocessor": "^20.0.5",
+    "@bahmutov/cypress-esbuild-preprocessor": "^2.2.0",
+    "cypress": "^13.13.0",
+    "eslint": "^9.13.0",
+    "eslint-config-airbnb-base": "^15.0.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-import": "^2.31.0",
+    "eslint-plugin-prettier": "^5.2.1",
+    "husky": "^9.1.6",
+    "lint-staged": "^15.2.10",
+    "mochawesome": "^7.1.3",
+    "mochawesome-merge": "^4.3.0",
+    "mochawesome-report-generator": "^6.2.0",
+    "prettier": "^3.3.3"
+  },
+  "lint-staged": {
+    "*.{js,cjs,json,md}": [
+      "prettier --write"
+    ],
+    "*.{js,cjs}": [
+      "eslint --fix"
+    ]
+  },
+  "engines": {
+    "node": ">=18.18.0"
+  }
+}
