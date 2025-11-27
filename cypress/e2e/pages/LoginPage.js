@@ -1,5 +1,3 @@
-import { dataTestId } from '../../support/helpers';
-
 const selectors = {
   email: 'email',
   password: 'senha',
