@@ -11,6 +11,6 @@ Feature: Search product
 
   Scenario: Product details page - Home Page
     Given I am on the Home page
-    When I open the product "Intel Core i5" from the product list
+    When I open the product "Intel Core i5" from the product Llist
     Then the product details page for "Intel Core i5" is displayed
     And I click on the Logout button
