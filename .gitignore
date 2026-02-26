@@ -1,20 +1,4 @@
-# Node
-node_modules/
-npm-debug.log*
-yarn-error.log
-.pnpm-debug.log*
-
-# Cypress artifacts
-cypress/videos/
-cypress/screenshots/
-cypress/downloads/
-
-# Reports
-cypress/reports/
-reports/
-mochawesome-report/
-
-# OS / IDE
-.DS_Store
-.idea/
-.vscode/
+node_modules
+cypress/videos
+cypress/screenshots
+.env
