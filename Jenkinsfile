@@ -20,7 +20,7 @@ pipeline {
                     checkout scm
                     
                     echo 'Installing only missing plugins...'
-                    // Instalamos apenas o necessário para o preprocessor funcionar
+                    
                     sh 'npm install @bahmutov/cypress-esbuild-preprocessor esbuild @badeball/cypress-cucumber-preprocessor --no-save --prefer-offline'
                     
                     echo 'Running Tests...'
