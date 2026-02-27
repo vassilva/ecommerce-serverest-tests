@@ -21,10 +21,10 @@ pipeline {
                     
                     echo 'Installing missing binary and plugins...'
                     
-                    // Garante que o executável do Cypress esteja presente
+                   
                     sh 'npx cypress install'
                     
-                    // Instala os plugins do Cucumber
+            
                     sh 'npm install @bahmutov/cypress-esbuild-preprocessor esbuild @badeball/cypress-cucumber-preprocessor --no-save --prefer-offline'
                     
                     echo 'Running Tests...'
