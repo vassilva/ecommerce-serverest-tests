@@ -21,7 +21,7 @@ pipeline {
                     
                     echo 'Installing only missing plugins...'
                     
-                    sh 'npm install @bahmutov/cypress-esbuild-preprocessor esbuild @badeball/cypress-cucumber-preprocessor --no-save --prefer-offline'
+                    sh  git'npm install @bahmutov/cypress-esbuild-preprocessor esbuild @badeball/cypress-cucumber-preprocessor --no-save --prefer-offline'
                     
                     echo 'Running Tests...'
                     sh 'npx cypress run'
