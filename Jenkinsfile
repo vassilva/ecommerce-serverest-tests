@@ -1,32 +1,30 @@
 pipeline {
-  agent {
-    docker {
-      image 'cypress/included:13.6.0'
-      args '--ipc=host'
-    }
-  }
-
-  environment {
-    CYPRESS_baseUrl = 'https://front.serverest.dev'
-  }
+  agent none
 
   stages {
-    stage('Checkout') {
-      steps { checkout scm }
-    }
+    stage('Cypress (docker)') {
+      agent {
+        docker {
+          image 'cypress/included:13.6.0'
+          args '--ipc=host'
+        }
+      }
 
-    stage('Install') {
-      steps { sh 'npm ci' }
-    }
+      environment {
+        CYPRESS_baseUrl = 'https://front.serverest.dev'
+      }
 
-    stage('Run Cypress') {
-      steps { sh 'npx cypress run' }
-    }
-  }
+      steps {
+        checkout scm
+        sh 'npm ci'
+        sh 'npx cypress run'
+      }
 
-  post {
-    always {
-      archiveArtifacts artifacts: 'cypress/screenshots/**, cypress/videos/**', allowEmptyArchive: true
+      post {
+        always {
+          archiveArtifacts artifacts: 'cypress/screenshots/**, cypress/videos/**', allowEmptyArchive: true
+        }
+      }
     }
   }
 }
