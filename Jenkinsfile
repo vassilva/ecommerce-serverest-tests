@@ -2,7 +2,7 @@ pipeline {
     agent any 
 
     options {
-        timeout(time: 15, unit: 'MINUTES')
+        timeout(time: 15, unit:  'MINUTES')
         buildDiscarder(logRotator(numToKeepStr: '5'))
     }
 
@@ -19,8 +19,12 @@ pipeline {
                 script {
                     checkout scm
                     
-                    echo 'Installing only missing plugins...'
+                    echo 'Installing missing binary and plugins...'
                     
+                   
+                    sh 'npx cypress install'
+                    
+            
                     sh 'npm install @bahmutov/cypress-esbuild-preprocessor esbuild @badeball/cypress-cucumber-preprocessor --no-save --prefer-offline'
                     
                     echo 'Running Tests...'
