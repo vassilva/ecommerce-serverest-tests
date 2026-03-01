@@ -51,7 +51,7 @@ pipeline {
       
       junit testResults: 'cypress/results/*.xml', allowEmptyResults: false
 
-      // Evidence + raw report file
+     
       archiveArtifacts artifacts: 'cypress/results/**, cypress/screenshots/**, cypress/videos/**', allowEmptyArchive: true
     }
   }
