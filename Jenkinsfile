@@ -48,10 +48,10 @@ pipeline {
 
   post {
     always {
-      // This will create the "Test Result" menu when XML exists
+      
       junit testResults: 'cypress/results/*.xml', allowEmptyResults: false
 
-      // Evidence + raw report file
+     
       archiveArtifacts artifacts: 'cypress/results/**, cypress/screenshots/**, cypress/videos/**', allowEmptyArchive: true
     }
   }
