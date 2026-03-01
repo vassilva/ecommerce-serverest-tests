@@ -16,27 +16,42 @@ pipeline {
       steps {
         checkout scm
 
+        echo 'Installing Cypress binary...'
         sh 'npx cypress install'
 
+        echo 'Installing required plugins...'
         sh 'npm install @bahmutov/cypress-esbuild-preprocessor esbuild @badeball/cypress-cucumber-preprocessor --no-save --prefer-offline'
 
+        // Install JUnit reporter (most common approach)
+        sh 'npm install mocha-junit-reporter --no-save --prefer-offline'
+
+        // Ensure folders exist
         sh 'mkdir -p cypress/results cypress/screenshots cypress/videos'
 
+        echo 'Running tests (JUnit XML)...'
         sh '''
           npx cypress run \
-          --reporter junit \
-          --reporter-options "mochaFile=cypress/results/results.xml,toConsole=true"
+            --reporter mocha-junit-reporter \
+            --reporter-options "mochaFile=cypress/results/results.xml,toConsole=true"
         '''
 
-        // debug para confirmar
-        sh 'ls -R cypress'
+        // Debug: prove the report exists
+        sh '''
+          echo "=== DEBUG: listing generated files ==="
+          ls -la cypress || true
+          ls -la cypress/results || true
+          find cypress -maxdepth 3 -type f -print || true
+        '''
       }
     }
   }
 
   post {
     always {
-      junit testResults: 'cypress/results/*.xml', allowEmptyResults: true
+      // This will create the "Test Result" menu when XML exists
+      junit testResults: 'cypress/results/*.xml', allowEmptyResults: false
+
+      // Evidence + raw report file
       archiveArtifacts artifacts: 'cypress/results/**, cypress/screenshots/**, cypress/videos/**', allowEmptyArchive: true
     }
   }
