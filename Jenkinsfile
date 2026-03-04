@@ -35,7 +35,7 @@ pipeline {
             --reporter-options "mochaFile=cypress/results/results.xml,toConsole=true"
         '''
 
-        // Debug: prove the report exists
+      
         sh '''
           echo "=== DEBUG: listing generated files ==="
           ls -la cypress || true
