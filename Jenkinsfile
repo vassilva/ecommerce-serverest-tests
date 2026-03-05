@@ -22,10 +22,10 @@ pipeline {
         echo 'Installing required plugins...'
         sh 'npm install @bahmutov/cypress-esbuild-preprocessor esbuild @badeball/cypress-cucumber-preprocessor --no-save --prefer-offline'
 
-        // Install JUnit reporter (most common approach)
+        
         sh 'npm install mocha-junit-reporter --no-save --prefer-offline'
 
-        // Ensure folders exist
+        
         sh 'mkdir -p cypress/results cypress/screenshots cypress/videos'
 
         echo 'Running tests (JUnit XML)...'
@@ -35,7 +35,7 @@ pipeline {
             --reporter-options "mochaFile=cypress/results/results.xml,toConsole=true"
         '''
 
-        // Debug: prove the report exists
+      
         sh '''
           echo "=== DEBUG: listing generated files ==="
           ls -la cypress || true
