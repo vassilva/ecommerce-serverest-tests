@@ -25,7 +25,7 @@ pipeline {
         
         sh 'npm install mocha-junit-reporter --no-save --prefer-offline'
 
-        // Ensure folders exist
+        
         sh 'mkdir -p cypress/results cypress/screenshots cypress/videos'
 
         echo 'Running tests (JUnit XML)...'
