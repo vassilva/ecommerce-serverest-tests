@@ -22,7 +22,6 @@ pipeline {
         echo 'Installing required plugins...'
         sh 'npm install @bahmutov/cypress-esbuild-preprocessor esbuild @badeball/cypress-cucumber-preprocessor --no-save --prefer-offline'
 
-        
         sh 'npm install mocha-junit-reporter --no-save --prefer-offline'
 
         
