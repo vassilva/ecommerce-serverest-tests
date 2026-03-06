@@ -32,8 +32,7 @@ pipeline {
             --reporter mocha-junit-reporter \
             --reporter-options "mochaFile=cypress/results/results.xml,toConsole=true"
         '''
-
-      
+   
         sh '''
           echo "=== DEBUG: listing generated files ==="
           ls -la cypress || true
