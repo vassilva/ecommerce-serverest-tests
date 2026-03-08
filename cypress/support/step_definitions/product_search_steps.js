@@ -46,6 +46,69 @@ function readQty($container, productName) {
   return NaN;
 }
 
+// --- GIVEN ---
+Given("the user is logged in", () => {
+  const userEmail = `qa.${Date.now()}.${Math.floor(Math.random() * 10000)}@test.com`;
+  const userPassword = "testpassword";
+  const adminEmail = `admin.${Date.now()}.${Math.floor(Math.random() * 10000)}@test.com`;
+  const adminPwd = "testpassword";
+  
+  // 1. Create Admin and Product
+  cy.request({
+    method: "POST",
+    url: "https://serverest.dev/usuarios",
+    body: { nome: "Admin QA", email: adminEmail, password: adminPwd, administrador: "true" },
+    failOnStatusCode: false,
+  }).then(() => {
+    // Retry login if it fails initially
+    const login = () => {
+      return cy.request({
+        method: "POST",
+        url: "https://serverest.dev/login",
+        body: { email: adminEmail, password: adminPwd },
+        failOnStatusCode: true,
+      });
+    };
+
+    login().then((adminRes) => {
+      const adminToken = adminRes.body.authorization;
+      cy.request({
+        method: "POST",
+        url: "https://serverest.dev/produtos",
+        headers: { Authorization: adminToken },
+        body: { nome: "Intel Core i5", preco: 1500, descricao: "Processor", quantidade: 10 },
+        failOnStatusCode: false,
+      }).then(() => {
+        // 2. Create Regular User and Login via UI ONLY AFTER product is created
+        cy.request({
+          method: "POST",
+          url: "https://serverest.dev/usuarios",
+          body: { nome: "QA User", email: userEmail, password: userPassword, administrador: "false" },
+          failOnStatusCode: false,
+        }).then(() => {
+          LoginPage.visit();
+          LoginPage.fillLogin(userEmail, userPassword);
+          LoginPage.submit();
+          
+          // Explicit wait for the URL change and verification
+          cy.url({ timeout: 15000 }).should("include", "/home");
+          HomePage.verifyLoggedIn();
+          
+          // Ensure the product is created and visible before proceeding
+          HomePage.searchProduct("Intel Core i5");
+          cy.contains("Intel Core i5", { timeout: 15000 }).should("be.visible");
+          cy.visit("/home");
+        });
+      });
+    });
+  });
+});
+
+Given("the user is on the home page", () => {
+  cy.visit("/home");
+  HomePage.verifyLoggedIn();
+});
+
 Given("I have Access the sytem with a registered user", () => {
   const email = `qa.${Date.now()}@test.com`;
   const password = "testpassword";
@@ -155,6 +218,28 @@ Given("I am logged in as a registered user", () => {
     });
 });
 
+// --- WHEN ---
+When("the user searches for a valid product", () => {
+  const productName = "Intel Core i5";
+  cy.visit("/home"); // Force home page to clear previous states
+  HomePage.searchProduct(productName);
+  // Ensure results are loaded
+  cy.contains(productName, { timeout: 15000 }).should("be.visible");
+});
+
+When("the user searches for a valid product from the home page", () => {
+  const productName = "Intel Core i5";
+  cy.visit("/home"); // Force home page to clear previous states
+  HomePage.searchProduct(productName);
+  // Ensure results are loaded
+  cy.contains(productName, { timeout: 15000 }).should("be.visible");
+});
+
+When("selects a product from the search results", () => {
+  cy.contains("Intel Core i5", { timeout: 10000 }).should("be.visible");
+  HomePage.clickProductDetails("Intel Core i5");
+});
+
 When("I type Intel Core i5 in the search bar", () => {
   cy.get('[data-testid="pesquisar"]').clear();
   cy.get('[data-testid="pesquisar"]').type("Intel Core i5");
@@ -162,6 +247,16 @@ When("I type Intel Core i5 in the search bar", () => {
 
 When("I click on the Search button", () => {
   cy.get('[data-testid="botaoPesquisar"]').click();
+});
+
+// --- THEN ---
+Then("the product details page should be displayed", () => {
+  cy.url().should("include", "detalhesProduto");
+  cy.contains("Intel Core i5").should("be.visible");
+});
+
+Then("the matching products should be displayed", () => {
+  cy.contains("Intel Core i5").should("be.visible");
 });
 
 Then("the product details page is displayed", () => {
@@ -178,8 +273,8 @@ Then("the product details page for {string} is displayed", (productName) => {
   cy.contains(productName).should("be.visible");
 });
 
-When("I open the product {string} from the product list", (productName) => {
-  HomePage.clickProductDetails(productName);
+When("the user selects the product Intel Core i5 from the home page list", () => {
+  HomePage.clickProductDetails("Intel Core i5");
 });
 
 Given("I have searched for the product Intel Core i5", () => {
@@ -373,44 +468,17 @@ Given("I am on the shopping list page", () => {
 
 Given("I have the product Intel Core i5 in the shopping list", () => {
   const productName = "Intel Core i5";
-  const adminEmail = `admin.${Date.now()}@test.com`;
-  const adminPwd = "testpassword";
-  cy.request({
-    method: "POST",
-    url: "https://serverest.dev/usuarios",
-    body: { nome: "Admin QA", email: adminEmail, password: adminPwd, administrador: "true" },
-    failOnStatusCode: false,
-  })
-    .then(() => {
-      return cy.request({
-        method: "POST",
-        url: "https://serverest.dev/login",
-        body: { email: adminEmail, password: adminPwd },
-      });
-    })
-    .then((adminRes) => {
-      const adminToken = adminRes.body.authorization;
-      return cy.request({
-        method: "POST",
-        url: "https://serverest.dev/produtos",
-        headers: { Authorization: adminToken },
-        body: { nome: productName, preco: 1500, descricao: "Processor", quantidade: 10 },
-        failOnStatusCode: false,
-      });
-    })
-    .then(() => {
-      cy.visit("/home");
-      HomePage.searchProduct(productName);
-      cy.contains("Adicionar a lista").click();
-      cy.visit("/minhaListaDeProdutos");
-      cy.contains(productName).should("be.visible");
-      cy.contains(productName)
-        .parentsUntil('div[class*="row"], div[class*="col"]')
-        .parent()
-        .then(($container) => {
-          const val = readQty($container, productName);
-          Cypress.env("initialQty", Number.isFinite(val) ? val : 1);
-        });
+  cy.visit("/home");
+  HomePage.searchProduct(productName);
+  cy.contains("Adicionar a lista").click();
+  cy.visit("/minhaListaDeProdutos");
+  cy.contains(productName).should("be.visible");
+  cy.contains(productName)
+    .parentsUntil('div[class*="row"], div[class*="col"]')
+    .parent()
+    .then(($container) => {
+      const val = readQty($container, productName);
+      Cypress.env("initialQty", Number.isFinite(val) ? val : 1);
     });
 });
 
@@ -436,50 +504,23 @@ Then("the product quantity is increased and the values are updated", () => {
 
 Given("I already have the product Intel Core i5 added twice in the shopping list", () => {
   const productName = "Intel Core i5";
-  const adminEmail = `admin.${Date.now()}@test.com`;
-  const adminPwd = "testpassword";
-  cy.request({
-    method: "POST",
-    url: "https://serverest.dev/usuarios",
-    body: { nome: "Admin QA", email: adminEmail, password: adminPwd, administrador: "true" },
-    failOnStatusCode: false,
-  })
-    .then(() => {
-      return cy.request({
-        method: "POST",
-        url: "https://serverest.dev/login",
-        body: { email: adminEmail, password: adminPwd },
-      });
-    })
-    .then((adminRes) => {
-      const adminToken = adminRes.body.authorization;
-      return cy.request({
-        method: "POST",
-        url: "https://serverest.dev/produtos",
-        headers: { Authorization: adminToken },
-        body: { nome: productName, preco: 1500, descricao: "Processor", quantidade: 10 },
-        failOnStatusCode: false,
-      });
-    })
-    .then(() => {
-      cy.visit("/home");
-      HomePage.searchProduct(productName);
-      cy.contains("Adicionar a lista").click();
-      cy.visit("/minhaListaDeProdutos");
-      cy.contains(productName).should("be.visible");
-      cy.contains(productName)
-        .parentsUntil('div[class*="row"], div[class*="col"]')
-        .parent()
-        .find("button")
-        .contains("+")
-        .click();
-      cy.contains(productName)
-        .parentsUntil('div[class*="row"], div[class*="col"]')
-        .parent()
-        .then(($container) => {
-          const current = readQty($container, productName);
-          Cypress.env("initialQty", Number.isFinite(current) ? current : 2);
-        });
+  cy.visit("/home");
+  HomePage.searchProduct(productName);
+  cy.contains("Adicionar a lista").click();
+  cy.visit("/minhaListaDeProdutos");
+  cy.contains(productName).should("be.visible");
+  cy.contains(productName)
+    .parentsUntil('div[class*="row"], div[class*="col"]')
+    .parent()
+    .find("button")
+    .contains("+")
+    .click();
+  cy.contains(productName)
+    .parentsUntil('div[class*="row"], div[class*="col"]')
+    .parent()
+    .then(($container) => {
+      const current = readQty($container, productName);
+      Cypress.env("initialQty", Number.isFinite(current) ? current : 2);
     });
 });
 
@@ -611,6 +652,175 @@ Given("I have products in the shopping list", () => {
       cy.contains("Intel Core i5").should("be.visible");
       cy.contains("iPhone 16").should("be.visible");
     });
+});
+
+// --- SHOPPING LIST STEPS ---
+When("the user adds a product to the shopping list", () => {
+  const productName = "Intel Core i5";
+  cy.visit("/home");
+  HomePage.searchProduct(productName);
+  // Ensure the search result is present before clicking
+  cy.contains(productName, { timeout: 15000 }).should("be.visible");
+  HomePage.clickProductDetails(productName);
+  // Wait for the details page and button
+  cy.contains("Adicionar a lista", { timeout: 10000 }).should("be.visible").click();
+});
+
+Then("the product should be displayed in the shopping list", () => {
+  cy.url().should("include", "minhaListaDeProdutos");
+  cy.contains("Intel Core i5").should("be.visible");
+});
+
+Given("a product has been added to the shopping list", () => {
+  const productName = "Intel Core i5";
+  cy.visit("/home");
+  HomePage.searchProduct(productName);
+  HomePage.clickProductDetails(productName);
+  cy.contains("Adicionar a lista").click();
+  cy.url().should("include", "minhaListaDeProdutos");
+});
+
+When("the user increases the quantity of the product", () => {
+  cy.contains("Intel Core i5")
+    .parentsUntil('div[class*="row"], div[class*="col"]')
+    .parent()
+    .find("button")
+    .contains("+")
+    .click();
+});
+
+Then("the product quantity should be updated", () => {
+  cy.contains("Intel Core i5")
+    .parentsUntil('div[class*="row"], div[class*="col"]')
+    .parent()
+    .then(($container) => {
+      cy.wrap($container).should(($c) => {
+        const current = readQty($c, "Intel Core i5");
+        expect(current).to.be.greaterThan(1);
+      });
+    });
+});
+
+Given("a product has been added to the shopping list with quantity greater than one", () => {
+  const productName = "Intel Core i5";
+  cy.visit("/home");
+  HomePage.searchProduct(productName);
+  cy.contains(productName, { timeout: 10000 }).should("be.visible");
+  HomePage.clickProductDetails(productName);
+  cy.contains("Adicionar a lista").click();
+  cy.visit("/minhaListaDeProdutos");
+  cy.contains(productName).should("be.visible");
+  cy.contains(productName)
+    .parentsUntil('div[class*="row"], div[class*="col"]')
+    .parent()
+    .find("button")
+    .contains("+")
+    .click();
+});
+
+When("the user decreases the quantity of the product", () => {
+  cy.contains("Intel Core i5")
+    .parentsUntil('div[class*="row"], div[class*="col"]')
+    .parent()
+    .find("button")
+    .contains("-")
+    .click();
+});
+
+Then("the product quantity should be reduced", () => {
+  cy.contains("Intel Core i5")
+    .parentsUntil('div[class*="row"], div[class*="col"]')
+    .parent()
+    .then(($container) => {
+      const current = readQty($container, "Intel Core i5");
+      expect(current).to.eq(1);
+    });
+});
+
+Given("a product has already been added to the shopping list", () => {
+  const productName = "Intel Core i5";
+  cy.visit("/home");
+  HomePage.searchProduct(productName);
+  HomePage.clickProductDetails(productName);
+  cy.contains("Adicionar a lista").click();
+});
+
+When("the user adds another different product to the shopping list", () => {
+  const productName = "iPhone 16";
+  const adminEmail = `admin.${Date.now()}.${Math.floor(Math.random() * 10000)}@test.com`;
+  const adminPwd = "testpassword";
+  
+  // 1. Create Admin
+  cy.request({
+    method: "POST",
+    url: "https://serverest.dev/usuarios",
+    body: { nome: "Admin QA", email: adminEmail, password: adminPwd, administrador: "true" },
+    failOnStatusCode: false,
+  }).then(() => {
+    // 2. Login Admin to get Token
+    cy.request({
+      method: "POST",
+      url: "https://serverest.dev/login",
+      body: { email: adminEmail, password: adminPwd },
+    }).then((adminRes) => {
+      const adminToken = adminRes.body.authorization;
+      // 3. Create the second product via API
+      cy.request({
+        method: "POST",
+        url: "https://serverest.dev/produtos",
+        headers: { Authorization: adminToken },
+        body: { nome: productName, preco: 6000, descricao: "Phone", quantidade: 50 },
+        failOnStatusCode: false,
+      }).then(() => {
+        // 4. Navigate and Add to List via UI
+        cy.visit("/home");
+        HomePage.searchProduct(productName);
+        // Ensure the product is created and visible before proceeding
+        cy.contains(productName, { timeout: 15000 }).should("be.visible");
+        HomePage.clickProductDetails(productName);
+        // Wait for the button to be available before clicking
+        cy.contains("Adicionar a lista", { timeout: 10000 }).should("be.visible").click();
+      });
+    });
+  });
+});
+
+Then("both products should be displayed in the shopping list", () => {
+  cy.url().should("include", "minhaListaDeProdutos");
+  cy.contains("Intel Core i5").should("be.visible");
+  cy.contains("iPhone 16").should("be.visible");
+});
+
+Given("products have been added to the shopping list", () => {
+  const productName = "Intel Core i5";
+  cy.visit("/home");
+  HomePage.searchProduct(productName);
+  // Ensure search result is present
+  cy.contains(productName, { timeout: 15000 }).should("be.visible");
+  HomePage.clickProductDetails(productName);
+  // Wait for the details page and button
+  cy.contains("Adicionar a lista", { timeout: 10000 }).should("be.visible").click();
+  // Verify it's in the list
+  cy.url().should("include", "minhaListaDeProdutos");
+  cy.contains(productName).should("be.visible");
+});
+
+When("the user clears the shopping list", () => {
+  cy.url().should("include", "minhaListaDeProdutos");
+  cy.contains(/Limpar|Clear/i).click();
+});
+
+Then("the shopping list should be empty", () => {
+  cy.url().should("include", "minhaListaDeProdutos");
+  cy.get("body").then(($body) => {
+    const itemsCount = $body.find(".card, [data-testid*='produto'], .produto").length;
+    expect(itemsCount).to.eq(0);
+  });
+});
+
+When("adds the product to the shopping list from the search results", () => {
+  HomePage.clickProductDetails("Intel Core i5");
+  cy.contains("Adicionar a lista").click();
 });
 
 When("I click on the Clear list button", () => {
