@@ -7,10 +7,16 @@ The test suite validates critical user flows, keeps scenarios independent, and p
 Technologies used include Cypress, Cucumber, Cypress Cucumber Preprocessor (@badeball), JavaScript, ESLint, Prettier and Node.js.
 
 Project structure:
-cypress/e2e contains the feature files, including the happy path regression test (4-shopping-list-searchmenu.feature). Step definitions and page objects are located under cypress/support. CI workflows are defined under .github/workflows.
+The `cypress/e2e` directory is organized into specialized folders:
+- `exploratory/`: Scenarios for exploratory testing.
+- `smoke/`: Critical "smoke" tests for fast verification.
+- `regression/`: Comprehensive regression suite (signup, search, shopping-list).
+- `monitoring/`: Scenarios designed for environment monitoring.
 
-The E2E strategy focuses on scenario independence, minimal duplication, and a single happy path regression covering the main user flow (search to shopping list).
+Step definitions and page objects are located under `cypress/support`. CI workflows are defined under `.github/workflows`.
 
-To run the tests locally, install dependencies with npm install, execute all tests with npx cypress run, or run only the regression test using npm run cy:run:regression or npx cypress run --spec "cypress/e2e/4-shopping-list-searchmenu.feature".
+The E2E strategy focuses on scenario independence, minimal duplication, and categorized test execution.
+
+To run the tests locally, install dependencies with `npm install`, execute all tests with `npx cypress run`, or run only the regression tests using `npm run cy:run:regression`.
 
 The project uses GitHub Actions to run linting, unit tests, and the regression E2E test on every pull request and merge.
