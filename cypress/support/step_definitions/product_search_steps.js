@@ -52,7 +52,7 @@ Given("the user is logged in", () => {
   const userPassword = "testpassword";
   const adminEmail = `admin.${Date.now()}.${Math.floor(Math.random() * 10000)}@test.com`;
   const adminPwd = "testpassword";
-  
+
   // 1. Create Admin and Product
   cy.request({
     method: "POST",
@@ -83,17 +83,22 @@ Given("the user is logged in", () => {
         cy.request({
           method: "POST",
           url: "https://serverest.dev/usuarios",
-          body: { nome: "QA User", email: userEmail, password: userPassword, administrador: "false" },
+          body: {
+            nome: "QA User",
+            email: userEmail,
+            password: userPassword,
+            administrador: "false",
+          },
           failOnStatusCode: false,
         }).then(() => {
           LoginPage.visit();
           LoginPage.fillLogin(userEmail, userPassword);
           LoginPage.submit();
-          
+
           // Explicit wait for the URL change and verification
           cy.url({ timeout: 15000 }).should("include", "/home");
           HomePage.verifyLoggedIn();
-          
+
           // Ensure the product is created and visible before proceeding
           HomePage.searchProduct("Intel Core i5");
           cy.contains("Intel Core i5", { timeout: 15000 }).should("be.visible");
@@ -749,7 +754,7 @@ When("the user adds another different product to the shopping list", () => {
   const productName = "iPhone 16";
   const adminEmail = `admin.${Date.now()}.${Math.floor(Math.random() * 10000)}@test.com`;
   const adminPwd = "testpassword";
-  
+
   // 1. Create Admin
   cy.request({
     method: "POST",
