@@ -3,23 +3,38 @@
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
+  "type": "commonjs",
+  "packageManager": "npm@10",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "cy:open": "cypress open",
     "cy:run": "cypress run",
     "cy:run:chrome": "cypress run --browser chrome",
     "cy:run:headless": "cypress run",
-    "cy:run:regression": "cypress run --env TAGS='@regression'",
+
+    "cy:run:smoke": "cypress run --spec \"cypress/e2e/smoke/**/*.feature\"",
+    "cy:run:regression": "cypress run --spec \"cypress/e2e/regression/**/*.feature\"",
+    "cy:run:exploratory": "cypress run --spec \"cypress/e2e/exploratory/**/*.feature\"",
+    "cy:run:monitoring": "cypress run --spec \"cypress/e2e/monitoring/**/*.feature\"",
+
     "lint": "eslint cypress/**/*.js",
     "lint:fix": "eslint cypress/**/*.js --fix",
+
     "format": "prettier --write \"cypress/**/*.{js,json}\"",
     "format:check": "prettier --check \"cypress/**/*.{js,json}\"",
-    "test": "npm run cy:run",
+
+    "test": "npm run cy:run:smoke",
+    "test:regression": "npm run cy:run:regression",
+    "test:exploratory": "npm run cy:run:exploratory",
+    "test:monitoring": "npm run cy:run:monitoring",
+
     "ci": "npm run lint && npm run format:check && npm run test"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "type": "commonjs",
   "devDependencies": {
     "@badeball/cypress-cucumber-preprocessor": "^24.0.0",
     "@bahmutov/cypress-esbuild-preprocessor": "^2.2.8",

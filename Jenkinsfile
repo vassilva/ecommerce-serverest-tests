@@ -1,7 +1,7 @@
 pipeline {
   agent {
     docker {
-      image 'cypress/included:latest'
+      image 'cypress/included:15.8.2'
       args '--ipc=host --entrypoint='
     }
   }
@@ -12,44 +12,29 @@ pipeline {
   }
 
   stages {
-    stage('Cypress Execution') {
+    stage('Install dependencies') {
       steps {
         checkout scm
-
-        echo 'Installing Cypress binary...'
-        sh 'npx cypress install'
-
-        echo 'Installing required plugins...'
-        sh 'npm install @bahmutov/cypress-esbuild-preprocessor esbuild @badeball/cypress-cucumber-preprocessor --no-save --prefer-offline'
-
-      sh 'npm install mocha-junit-reporter --no-save --prefer-offline'
-
-        sh 'mkdir -p cypress/results cypress/screenshots cypress/videos'
-
-        echo 'Running tests (JUnit XML)...'
-        sh '''
-          npx cypress run \
-            --reporter mocha-junit-reporter \
-            --reporter-options "mochaFile=cypress/results/results.xml,toConsole=true"
-        '''
-   // CI TEST: triggering Jenkins pipeline validation-1
-        sh '''
-          echo "=== DEBUG: listing generated files ==="
-          ls -la cypress || true
-          ls -la cypress/results || true
-          find cypress -maxdepth 3 -type f -print || true
-        '''
+        sh 'npm ci'
       }
     }
-  }
 
-  post {
-    always {
-      
-      junit testResults: 'cypress/results/*.xml', allowEmptyResults: false
+    stage('Lint') {
+      steps {
+        sh 'npm run lint'
+      }
+    }
 
-     
-      archiveArtifacts artifacts: 'cypress/results/**, cypress/screenshots/**, cypress/videos/**', allowEmptyArchive: true
+    stage('Format check') {
+      steps {
+        sh 'npm run format:check'
+      }
+    }
+
+    stage('Tests') {
+      steps {
+        sh 'npm run test'
+      }
     }
   }
 }
