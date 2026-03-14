@@ -8,6 +8,7 @@ Technologies used include Cypress, Cucumber, Cypress Cucumber Preprocessor (@bad
 
 Project structure:
 The `cypress/e2e` directory is organized into specialized folders:
+
 - `exploratory/`: Scenarios for exploratory testing.
 - `smoke/`: Critical "smoke" tests for fast verification.
 - `regression/`: Comprehensive regression suite (signup, search, shopping-list).
