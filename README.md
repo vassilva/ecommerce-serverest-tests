@@ -17,6 +17,7 @@ Page objects are located under `cypress/support/pages`. CI workflows are defined
 The E2E strategy focuses on scenario independence, minimal duplication, and categorized test execution.
 
 To run the tests locally, install dependencies with `npm install`, execute all tests with `npx cypress run`, or run categorized tests:
+
 - `npm run cy:run:smoke`: Runs critical tests tagged with @smoke.
 - `npm run cy:run:regression`: Runs full regression suite tagged with @regressivo.
 
