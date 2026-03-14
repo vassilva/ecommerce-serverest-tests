@@ -7,17 +7,18 @@ The test suite validates critical user flows, keeps scenarios independent, and p
 Technologies used include Cypress, Cucumber, Cypress Cucumber Preprocessor (@badeball), JavaScript, ESLint, Prettier and Node.js.
 
 Project structure:
-The `cypress/e2e` directory is organized into specialized folders:
+The `cypress/e2e` directory is organized as follows:
 
-- `exploratory/`: Scenarios for exploratory testing.
-- `smoke/`: Critical "smoke" tests for fast verification.
-- `regression/`: Comprehensive regression suite (signup, search, shopping-list).
-- `monitoring/`: Scenarios designed for environment monitoring.
+- `features/`: Contains all Gherkin `.feature` files (categorized by @smoke and @regressivo tags).
+- `step_definitions/`: Contains reusable JavaScript files mapping Gherkin steps to actions.
 
-Step definitions and page objects are located under `cypress/support`. CI workflows are defined under `.github/workflows`.
+Page objects are located under `cypress/support/pages`. CI workflows are defined under `.github/workflows`.
 
 The E2E strategy focuses on scenario independence, minimal duplication, and categorized test execution.
 
-To run the tests locally, install dependencies with `npm install`, execute all tests with `npx cypress run`, or run only the regression tests using `npm run cy:run:regression`.
+To run the tests locally, install dependencies with `npm install`, execute all tests with `npx cypress run`, or run categorized tests:
+
+- `npm run cy:run:smoke`: Runs critical tests tagged with @smoke.
+- `npm run cy:run:regression`: Runs full regression suite tagged with @regressivo.
 
 The project uses GitHub Actions to run linting, unit tests, and the regression E2E test on every pull request and merge.
