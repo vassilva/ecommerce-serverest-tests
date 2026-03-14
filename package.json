@@ -14,10 +14,8 @@
     "cy:run:chrome": "cypress run --browser chrome",
     "cy:run:headless": "cypress run",
 
-    "cy:run:smoke": "cypress run --spec \"cypress/e2e/smoke/**/*.feature\"",
-    "cy:run:regression": "cypress run --spec \"cypress/e2e/regression/**/*.feature\"",
-    "cy:run:exploratory": "cypress run --spec \"cypress/e2e/exploratory/**/*.feature\"",
-    "cy:run:monitoring": "cypress run --spec \"cypress/e2e/monitoring/**/*.feature\"",
+    "cy:run:smoke": "cypress run --env tags=@smoke",
+    "cy:run:regression": "cypress run --env tags=@regressivo",
 
     "lint": "eslint cypress/**/*.js",
     "lint:fix": "eslint cypress/**/*.js --fix",
@@ -27,8 +25,6 @@
 
     "test": "npm run cy:run:smoke",
     "test:regression": "npm run cy:run:regression",
-    "test:exploratory": "npm run cy:run:exploratory",
-    "test:monitoring": "npm run cy:run:monitoring",
 
     "ci": "npm run lint && npm run format:check && npm run test"
   },
