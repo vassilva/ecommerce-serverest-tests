@@ -54,7 +54,12 @@ Given("que o usuário está logado no sistema", () => {
         cy.request({
           method: "POST",
           url: "https://serverest.dev/usuarios",
-          body: { nome: "QA User", email: userEmail, password: userPassword, administrador: "false" },
+          body: {
+            nome: "QA User",
+            email: userEmail,
+            password: userPassword,
+            administrador: "false",
+          },
           failOnStatusCode: false,
         }).then(() => {
           LoginPage.visit();
@@ -165,7 +170,7 @@ When("o usuário adiciona outro produto diferente à lista de compras", () => {
   const productName = "iPhone 16";
   const adminEmail = `admin.${Date.now()}.${Math.floor(Math.random() * 10000)}@test.com`;
   const adminPwd = "testpassword";
-  
+
   cy.request({
     method: "POST",
     url: "https://serverest.dev/usuarios",
