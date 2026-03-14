@@ -1,7 +1,7 @@
 {
   "name": "automacao-serverest",
   "version": "1.0.0",
-  "description": "",
+  "description": "Cypress automation project for ServeRest with Cucumber and CI/CD",
   "main": "index.js",
   "type": "commonjs",
   "packageManager": "npm@10",
@@ -10,26 +10,26 @@
   },
   "scripts": {
     "cy:open": "cypress open",
-    "cy:run": "cypress run",
     "cy:run:chrome": "cypress run --browser chrome",
-    "cy:run:headless": "cypress run",
-
-    "cy:run:smoke": "cypress run --env tags=@smoke",
-    "cy:run:regression": "cypress run --env tags=@regressivo",
-
+    "cy:run:smoke": "cypress run --env grepTags=@smoke",
+    "cy:run:regression": "cypress run --env grepTags=@regression",
     "lint": "eslint cypress/**/*.js",
     "lint:fix": "eslint cypress/**/*.js --fix",
-
-    "format": "prettier --write \"cypress/**/*.{js,json}\"",
-    "format:check": "prettier --check \"cypress/**/*.{js,json}\"",
-
+    "format:check": "prettier --check \"cypress/**/*.{js,json,feature}\"",
+    "format:fix": "prettier --write \"cypress/**/*.{js,json,feature}\"",
     "test": "npm run cy:run:smoke",
     "test:regression": "npm run cy:run:regression",
-
-    "ci": "npm run lint && npm run format:check && npm run test"
+    "pretest": "npm run lint && npm run format:check",
+    "ci": "npm test"
   },
-  "keywords": [],
-  "author": "",
+  "keywords": [
+    "cypress",
+    "cucumber",
+    "bdd",
+    "qa",
+    "automation"
+  ],
+  "author": "Vicente Silva",
   "license": "ISC",
   "devDependencies": {
     "@badeball/cypress-cucumber-preprocessor": "^24.0.0",
