@@ -55,7 +55,7 @@ pipeline {
   
   post {
     always {
-        // Executed regardless of the build status 
+        // Executed regardless of the build status-PIPE
         echo 'Finishing the ServeRest automation pipeline execution...'
     }
     success {
