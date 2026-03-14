@@ -6,6 +6,8 @@ Feature: Cadastro de Usuários
     When preenche os dados de cadastro com informações válidas
     And submete o formulário de cadastro
     Then a conta deve ser criada com sucesso
+    And o usuário realiza o logout do sistema
+    Then o usuário deve ser deslogado com sucesso
 
   @regressivo
   Scenario: Tentar cadastrar usuário com e-mail já existente

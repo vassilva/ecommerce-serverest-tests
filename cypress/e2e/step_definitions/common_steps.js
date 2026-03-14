@@ -263,6 +263,15 @@ Then("a lista de compras deve estar vazia", () => {
   cy.contains(/Sua lista está vazia|Seu carrinho está vazio/i).should("be.visible");
 });
 
+When("o usuário realiza o logout do sistema", () => {
+  HomePage.logout();
+});
+
+Then("o usuário deve ser deslogado com sucesso", () => {
+  cy.url().should("include", "/login");
+  cy.get('h1, button, [data-testid="entrar"]').contains(/Entrar|Login/i).should("be.visible");
+});
+
 Then("a quantidade do produto deve ser atualizada", () => {
   cy.contains("Intel Core i5")
     .parentsUntil('div[class*="row"], div[class*="col"]')
