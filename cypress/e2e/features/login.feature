@@ -1,10 +1,10 @@
-Feature: Login de Usuários
+Feature: User Login
 
-  @smoke @regressivo
-  Scenario: Realizar login com credenciais válidas
-    Given que o usuário está na página de login
-    When preenche o formulário de login com dados válidos
-    And submete o formulário de login
-    Then o usuário deve ser redirecionado para a home page e estar logado
-    And o usuário realiza o logout do sistema
-    Then o usuário deve ser deslogado com sucesso
+  @smoke @regression
+  Scenario: Login with valid credentials
+    Given the user is on the login page
+    When fills in the login form with valid data
+    And submits the login form
+    Then the user should be redirected to the home page and be logged in
+    And the user performs the logout
+    Then the user should be logged out successfully
