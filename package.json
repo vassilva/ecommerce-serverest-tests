@@ -12,7 +12,7 @@
     "cy:open": "cypress open",
     "cy:run:chrome": "cypress run --browser chrome",
     "cy:run:smoke": "cypress run --env tags=@smoke",
-    "cy:run:regression": "cypress run --env tags=@regressivo",
+    "cy:run:regression": "cypress run --env tags=@regression",
     "lint": "eslint cypress/**/*.js",
     "lint:fix": "eslint cypress/**/*.js --fix",
     "format:check": "prettier --check . --ignore-unknown",

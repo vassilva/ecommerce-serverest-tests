@@ -19,12 +19,12 @@ function readQty($container, productName) {
 }
 
 // --- GIVEN ---
-Given("que o usuário está na página de cadastro", () => {
+Given("the user is on the registration page", () => {
   LoginPage.visit();
   LoginPage.clickSignUp();
 });
 
-Given("que o usuário está logado no sistema", () => {
+Given("the user is logged into the system", () => {
   const userEmail = `qa.${Date.now()}.${Math.floor(Math.random() * 10000)}@test.com`;
   const userPassword = "testpassword";
   const adminEmail = `admin.${Date.now()}.${Math.floor(Math.random() * 10000)}@test.com`;
@@ -73,12 +73,12 @@ Given("que o usuário está logado no sistema", () => {
   });
 });
 
-Given("que o usuário está na página inicial", () => {
+Given("the user is on the home page", () => {
   cy.visit("/home");
   HomePage.verifyLoggedIn();
 });
 
-Given("que um produto já foi adicionado à lista de compras", () => {
+Given("a product has already been added to the shopping list", () => {
   const productName = "Intel Core i5";
   cy.visit("/home");
   HomePage.searchProduct(productName);
@@ -87,17 +87,7 @@ Given("que um produto já foi adicionado à lista de compras", () => {
   cy.contains("Adicionar a lista", { timeout: 10000 }).should("be.visible").click();
 });
 
-Given("que produtos foram adicionados à lista de compras", () => {
-  const productName = "Intel Core i5";
-  cy.visit("/home");
-  HomePage.searchProduct(productName);
-  cy.contains(productName, { timeout: 15000 }).should("be.visible");
-  HomePage.clickProductDetails(productName);
-  cy.contains("Adicionar a lista", { timeout: 10000 }).should("be.visible").click();
-  cy.url().should("include", "minhaListaDeProdutos");
-});
-
-Given("que um produto foi adicionado à lista de compras", () => {
+Given("products have been added to the shopping list", () => {
   const productName = "Intel Core i5";
   cy.visit("/home");
   HomePage.searchProduct(productName);
@@ -107,7 +97,17 @@ Given("que um produto foi adicionado à lista de compras", () => {
   cy.url().should("include", "minhaListaDeProdutos");
 });
 
-Given("que um produto foi adicionado à lista de compras com quantidade maior que um", () => {
+Given("a product has been added to the shopping list", () => {
+  const productName = "Intel Core i5";
+  cy.visit("/home");
+  HomePage.searchProduct(productName);
+  cy.contains(productName, { timeout: 15000 }).should("be.visible");
+  HomePage.clickProductDetails(productName);
+  cy.contains("Adicionar a lista", { timeout: 10000 }).should("be.visible").click();
+  cy.url().should("include", "minhaListaDeProdutos");
+});
+
+Given("a product has been added to the shopping list with quantity greater than one", () => {
   const productName = "Intel Core i5";
   cy.visit("/home");
   HomePage.searchProduct(productName);
@@ -124,40 +124,40 @@ Given("que um produto foi adicionado à lista de compras com quantidade maior qu
 });
 
 // --- WHEN ---
-When("preenche os dados de cadastro com informações válidas", () => {
+When("fills in the registration data with valid information", () => {
   const name = "Automation User";
   const uniqueEmail = `qa.${Date.now()}.${Math.floor(Math.random() * 100000)}@test.com`;
   const password = "testpassword";
   SignupPage.fillForm(name, uniqueEmail, password);
 });
 
-When("submete o formulário de cadastro", () => {
+When("submits the registration form", () => {
   SignupPage.submit();
 });
 
-When("preenche os dados de cadastro com um e-mail já existente", () => {
+When("fills in the registration data with an existing email", () => {
   const name = "Automation User";
   const existingEmail = "fulano@qa.com";
   const password = "testpassword";
   SignupPage.fillForm(name, existingEmail, password);
 });
 
-When("submete o formulário de cadastro sem preencher os campos obrigatórios", () => {
+When("submits the registration form without filling required fields", () => {
   SignupPage.submit();
 });
 
-When("o usuário busca por um produto válido na barra de pesquisa", () => {
+When("the user searches for a valid product in the search bar", () => {
   const productName = "Intel Core i5";
   cy.visit("/home");
   HomePage.searchProduct(productName);
   cy.contains(productName, { timeout: 15000 }).should("be.visible");
 });
 
-When("o usuário seleciona o produto Intel Core i5 diretamente da lista na home", () => {
+When("the user selects the product Intel Core i5 directly from the list on the home page", () => {
   HomePage.clickProductDetails("Intel Core i5");
 });
 
-When("o usuário adiciona um produto à lista de compras", () => {
+When("the user adds a product to the shopping list", () => {
   const productName = "Intel Core i5";
   cy.visit("/home");
   HomePage.searchProduct(productName);
@@ -166,7 +166,7 @@ When("o usuário adiciona um produto à lista de compras", () => {
   cy.contains("Adicionar a lista", { timeout: 10000 }).should("be.visible").click();
 });
 
-When("o usuário adiciona outro produto diferente à lista de compras", () => {
+When("the user adds another different product to the shopping list", () => {
   const productName = "iPhone 16";
   const adminEmail = `admin.${Date.now()}.${Math.floor(Math.random() * 10000)}@test.com`;
   const adminPwd = "testpassword";
@@ -200,12 +200,12 @@ When("o usuário adiciona outro produto diferente à lista de compras", () => {
   });
 });
 
-When("o usuário limpa a lista de compras", () => {
+When("the user clears the shopping list", () => {
   cy.url().should("include", "minhaListaDeProdutos");
   cy.contains(/Limpar|Clear/i).click();
 });
 
-When("o usuário aumenta a quantidade do produto", () => {
+When("the user increases the product quantity", () => {
   cy.contains("Intel Core i5")
     .parentsUntil('div[class*="row"], div[class*="col"]')
     .parent()
@@ -214,7 +214,7 @@ When("o usuário aumenta a quantidade do produto", () => {
     .click();
 });
 
-When("o usuário diminui a quantidade do produto", () => {
+When("the user decreases the product quantity", () => {
   cy.contains("Intel Core i5")
     .parentsUntil('div[class*="row"], div[class*="col"]')
     .parent()
@@ -223,56 +223,58 @@ When("o usuário diminui a quantidade do produto", () => {
     .click();
 });
 
+When("the user performs the logout", () => {
+  HomePage.logout();
+});
+
 // --- THEN ---
-Then("a conta deve ser criada com sucesso", () => {
+Then("the account should be created successfully", () => {
   SignupPage.verifySuccessMessage();
   cy.url({ timeout: 15000 }).should("include", "/home");
   HomePage.verifyLoggedIn();
 });
 
-Then("deve ser exibida uma mensagem informando que o e-mail já está em uso", () => {
+Then("a message should be displayed stating the email is already in use", () => {
   cy.contains("Este email já está sendo usado").should("be.visible");
 });
 
-Then("devem ser exibidas mensagens de validação para os campos obrigatórios", () => {
+Then("validation messages should be displayed for the required fields", () => {
   cy.contains("Nome é obrigatório").should("be.visible");
   cy.contains("Email é obrigatório").should("be.visible");
   cy.contains("Password é obrigatório").should("be.visible");
 });
 
-Then("o produto correspondente deve ser exibido nos resultados", () => {
+Then("the matching product should be displayed in the results", () => {
   cy.contains("Intel Core i5").should("be.visible");
 });
 
-Then("a página de detalhes do produto deve ser exibida", () => {
+Then("the product details page should be displayed", () => {
   cy.url().should("include", "/detalhesProduto/");
 });
 
-Then("o produto deve ser exibido na lista de compras", () => {
+Then("the product should be displayed in the shopping list", () => {
   cy.url().should("include", "minhaListaDeProdutos");
   cy.contains("Intel Core i5").should("be.visible");
 });
 
-Then("ambos os produtos devem ser exibidos na lista de compras", () => {
+Then("both products should be displayed in the shopping list", () => {
   cy.url().should("include", "minhaListaDeProdutos");
   cy.contains("Intel Core i5").should("be.visible");
   cy.contains("iPhone 16").should("be.visible");
 });
 
-Then("a lista de compras deve estar vazia", () => {
+Then("the shopping list should be empty", () => {
   cy.contains(/Sua lista está vazia|Seu carrinho está vazio/i).should("be.visible");
 });
 
-When("o usuário realiza o logout do sistema", () => {
-  HomePage.logout();
-});
-
-Then("o usuário deve ser deslogado com sucesso", () => {
+Then("the user should be logged out successfully", () => {
   cy.url().should("include", "/login");
-  cy.get('h1, button, [data-testid="entrar"]').contains(/Entrar|Login/i).should("be.visible");
+  cy.get('h1, button, [data-testid="entrar"]')
+    .contains(/Entrar|Login/i)
+    .should("be.visible");
 });
 
-Then("a quantidade do produto deve ser atualizada", () => {
+Then("the product quantity should be updated", () => {
   cy.contains("Intel Core i5")
     .parentsUntil('div[class*="row"], div[class*="col"]')
     .parent()
@@ -282,7 +284,7 @@ Then("a quantidade do produto deve ser atualizada", () => {
     });
 });
 
-Then("a quantidade do produto deve ser reduzida para um", () => {
+Then("the product quantity should be reduced to one", () => {
   cy.contains("Intel Core i5")
     .parentsUntil('div[class*="row"], div[class*="col"]')
     .parent()
