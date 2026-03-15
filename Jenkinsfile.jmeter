@@ -1,5 +1,12 @@
 pipeline {
-    agent any // Ou especifique um label: agent { label 'linux-docker' }
+    agent {
+        docker { 
+            // Utilizamos a imagem oficial para rodar os comandos do JMeter
+            image 'justb4/jmeter:latest' 
+            // Opcional: --entrypoint='' garante que o container não trave ao iniciar
+            args '-u root --entrypoint=""' 
+        }
+    }
 
     stages {
         stage('Checkout') {
@@ -29,6 +36,7 @@ pipeline {
         stage('Validate JMeter results') {
             steps {
                 script {
+                    // O comando grep conta as ocorrências de erro no arquivo JTL
                     def failures = sh(
                         script: "grep -c ',false,' jmeter/results/load-results.jtl || true",
                         returnStdout: true
