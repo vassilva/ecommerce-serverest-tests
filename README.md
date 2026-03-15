@@ -14,6 +14,11 @@ The `cypress/e2e` directory is organized as follows:
 
 Page objects are located under `cypress/support/pages`. CI workflows are defined under `.github/workflows`.
 
+The `jmeter/` directory contains non-functional performance tests:
+- `tests/`: Contains JMX files for performance tests (e.g., `load_products.jmx`).
+- `results/`: Contains execution results (e.g., `load-results.jtl`).
+- `reports/`: Folder for generated HTML performance reports.
+
 The E2E strategy focuses on scenario independence, minimal duplication, and categorized test execution.
 
 To run the tests locally, install dependencies with `npm install`, execute all tests with `npx cypress run`, or run categorized tests:
