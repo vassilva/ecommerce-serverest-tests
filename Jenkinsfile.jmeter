@@ -1,0 +1,55 @@
+stages {
+  stage('Checkout') {
+    steps {
+      checkout scm
+    }
+  }
+
+  stage('Prepare folders') {
+    steps {
+      sh 'mkdir -p jmeter/results'
+      sh 'mkdir -p jmeter/reports'
+    }
+  }
+
+  stage('Run JMeter PR smoke test') {
+    steps {
+      sh '''
+        rm -f jmeter/results/load-results.jtl
+        jmeter -n \
+          -t jmeter/tests/load_products.jmx \
+          -l jmeter/results/load-results.jtl
+      '''
+    }
+  }
+
+  stage('Validate JMeter results') {
+    steps {
+      script {
+        def failures = sh(
+          script: "grep -c ',false,' jmeter/results/load-results.jtl || true",
+          returnStdout: true
+        ).trim()
+
+        echo "Failed samples: ${failures}"
+
+        if (failures != '0') {
+          error "JMeter detected ${failures} failed requests."
+        }
+      }
+    }
+  }
+
+  stage('Generate HTML report') {
+    steps {
+      sh '''
+        if [ -f jmeter/results/load-results.jtl ]; then
+          rm -rf jmeter/reports/*
+          jmeter -g jmeter/results/load-results.jtl -o jmeter/reports
+        else
+          echo "JTL result file not found. Skipping HTML report generation."
+        fi
+      '''
+    }
+  }
+}
