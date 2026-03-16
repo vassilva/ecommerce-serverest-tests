@@ -36,8 +36,8 @@ pipeline {
         stage('Validate JMeter results') {
             steps {
                 script {
-                    // O comando grep conta as ocorrências de erro no arquivo  JTL
-                    def failures = sh(
+                    // O comando grep conta as ocorrências de erro no arquivo  JTL - 1
+                     def failures = sh(
                         script: "grep -c ',false,' jmeter/results/load-results.jtl || true",
                         returnStdout: true
                     ).trim()
