@@ -2,7 +2,7 @@ pipeline {
   agent {
     docker {
       image 'cypress/included:15.8.2'
-      args '--ipc=host --entrypoint='
+      args '--ipc=host --entrypoint=""'
     }
   }
 
