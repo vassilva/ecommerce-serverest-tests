@@ -8,36 +8,52 @@ pipeline {
 
     stages {
         stage('Checkout') {
-            steps { checkout scm }
+            steps {
+                checkout scm
+            }
         }
 
         stage('Prepare folders') {
-            steps { sh 'mkdir -p jmeter/results jmeter/reports' }
+            steps {
+                sh 'mkdir -p jmeter/results jmeter/reports'
+            }
         }
 
         stage('Run JMeter') {
             steps {
-                // Rodamos o teste. Mesmo que falhe, o pipeline continua para o próximo stage
-                sh 'jmeter -n -t jmeter/tests/load_products.jmx -l jmeter/results/load-results.jtl'
+                // Limpa resultados anteriores e roda o teste
+                sh '''
+                    rm -f jmeter/results/load-results.jtl
+                    jmeter -n -t jmeter/tests/load_products.jmx -l jmeter/results/load-results.jtl
+                '''
             }
         }
 
         stage('Generate HTML report') {
-            // Geramos o relatório ANTES da validação para você ter os dados do erro 400
             steps {
-                sh 'jmeter -g jmeter/results/load-results.jtl -o jmeter/reports'
+                // Gera o relatório antes da validação para que você possa baixar os dados
+                sh '''
+                    if [ -f jmeter/results/load-results.jtl ]; then
+                        rm -rf jmeter/reports/*
+                        jmeter -g jmeter/results/load-results.jtl -o jmeter/reports
+                    fi
+                '''
             }
         }
 
         stage('Validate Results') {
             steps {
                 script {
-                    def failures = sh(script: "grep -c ',false,' jmeter/results/load-results.jtl || echo 0", returnStdout: true).trim()
-                    echo "Total de falhas: ${failures}"
+                    def failures = sh(
+                        script: "grep -c ',false,' jmeter/results/load-results.jtl || echo 0",
+                        returnStdout: true
+                    ).trim()
+
+                    echo "Total de falhas detectadas: ${failures}"
 
                     if (failures != '0' && failures != "") {
-                        // Aqui o build fica vermelho e avisa o GitHub para bloquear o Merge
-                        error "O teste de performance falhou com ${failures} erros. Verifique o HTML Report abaixo."
+                        // Este comando interrompe o build e avisa o GitHub para bloquear o merge
+                        error "O teste de performance falhou com ${failures} erros. Baixe o relatório nos Artifacts."
                     }
                 }
             }
@@ -46,15 +62,10 @@ pipeline {
 
     post {
         always {
-            // Isso faz o botão "JMeter Report" aparecer no menu lateral do Jenkins
-            publishHTML([
-                allowMissing: true,
-                alwaysLinkToLastBuild: true,
-                keepAll: true,
-                reportDir: 'jmeter/reports',
-                reportFiles: 'index.html',
-                reportName: 'JMeter Report'
-            ])
+            // Como seu Jenkins não tem o plugin HTML Publisher, usamos o archiveArtifacts
+            // Você poderá baixar o relatório .zip na página do build
+            archiveArtifacts artifacts: 'jmeter/reports/**/*', allowEmptyArchive: true
+            echo 'Pipeline finalizado. Relatórios salvos como artefatos.'
         }
     }
 }
