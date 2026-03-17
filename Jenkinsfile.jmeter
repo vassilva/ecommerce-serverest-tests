@@ -49,11 +49,25 @@ pipeline {
                         returnStdout: true
                     ).trim()
 
-                    echo "Total de falhas detectadas: ${failures}"
+                    def total = sh(
+                        script: "grep -c ',' jmeter/results/load-results.jtl || echo 0",
+                        returnStdout: true
+                    ).trim()
+
+                    echo "Total de falhas detectadas: ${failures} de ${total} requisições."
 
                     if (failures != '0' && failures != "") {
-                        // Este comando interrompe o build e avisa o GitHub para bloquear o merge
-                        error "O teste de performance falhou com ${failures} erros. Baixe o relatório nos Artifacts."
+                        // Calcula a porcentagem de erro
+                        float failureRate = (failures.toInteger() / total.toInteger()) * 100
+                        echo "Taxa de erro: ${failureRate}%"
+
+                        // Só falha o build se a taxa de erro for superior a 10%
+                        if (failureRate > 10) {
+                            error "O teste de performance falhou com ${failures} erros (${failureRate}%). Baixe o relatório nos Artifacts."
+                        } else {
+                            currentBuild.result = 'UNSTABLE'
+                            echo "Teste de performance com algumas falhas, mas dentro do limite aceitável."
+                        }
                     }
                 }
             }

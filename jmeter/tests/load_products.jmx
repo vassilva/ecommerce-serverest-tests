@@ -101,7 +101,7 @@
               <connectTime>true</connectTime>
             </value>
           </objProp>
-          <stringProp name="filename">C:\Vicente\QA\Projetos\WEB\Automacao-ServeRest\jmeter\results\load-results.jtl</stringProp>
+          <stringProp name="filename">../results/load-results.jtl</stringProp>
         </ResultCollector>
         <hashTree/>
       </hashTree>
@@ -139,7 +139,7 @@
             <connectTime>true</connectTime>
           </value>
         </objProp>
-        <stringProp name="filename">C:\Vicente\QA\Projetos\WEB\Automacao-ServeRest\jmeter\results\load-results.jtl</stringProp>
+        <stringProp name="filename">../results/load-results.jtl</stringProp>
       </ResultCollector>
       <hashTree/>
     </hashTree>
