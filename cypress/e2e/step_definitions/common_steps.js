@@ -25,51 +25,11 @@ Given("the user is on the registration page", () => {
 });
 
 Given("the user is logged into the system", () => {
-  const userEmail = `qa.${Date.now()}.${Math.floor(Math.random() * 10000)}@test.com`;
-  const userPassword = "testpassword";
-  const adminEmail = `admin.${Date.now()}.${Math.floor(Math.random() * 10000)}@test.com`;
-  const adminPwd = "testpassword";
-
-  // 1. Create Admin and Product
-  cy.request({
-    method: "POST",
-    url: "https://serverest.dev/usuarios",
-    body: { nome: "Admin QA", email: adminEmail, password: adminPwd, administrador: "true" },
-    failOnStatusCode: false,
-  }).then(() => {
-    cy.request({
-      method: "POST",
-      url: "https://serverest.dev/login",
-      body: { email: adminEmail, password: adminPwd },
-    }).then((adminRes) => {
-      const adminToken = adminRes.body.authorization;
-      cy.request({
-        method: "POST",
-        url: "https://serverest.dev/produtos",
-        headers: { Authorization: adminToken },
-        body: { nome: "Intel Core i5", preco: 1500, descricao: "Processor", quantidade: 10 },
-        failOnStatusCode: false,
-      }).then(() => {
-        // 2. Create Regular User and Login via UI
-        cy.request({
-          method: "POST",
-          url: "https://serverest.dev/usuarios",
-          body: {
-            nome: "QA User",
-            email: userEmail,
-            password: userPassword,
-            administrador: "false",
-          },
-          failOnStatusCode: false,
-        }).then(() => {
-          LoginPage.visit();
-          LoginPage.fillLogin(userEmail, userPassword);
-          LoginPage.submit();
-          cy.url({ timeout: 15000 }).should("include", "/home");
-          HomePage.verifyLoggedIn();
-        });
-      });
-    });
+  const productName = "Intel Core i5";
+  // DRY: Using custom commands for data creation and login
+  cy.createAdminAndProduct(productName);
+  cy.createRegularUser().then((user) => {
+    cy.loginViaUI(user.email, user.password);
   });
 });
 
@@ -126,6 +86,7 @@ Given("a product has been added to the shopping list with quantity greater than 
 // --- WHEN ---
 When("fills in the registration data with valid information", () => {
   const name = "Automation User";
+  // Dynamic data for isolation
   const uniqueEmail = `qa.${Date.now()}.${Math.floor(Math.random() * 100000)}@test.com`;
   const password = "testpassword";
   SignupPage.fillForm(name, uniqueEmail, password);
@@ -168,35 +129,13 @@ When("the user adds a product to the shopping list", () => {
 
 When("the user adds another different product to the shopping list", () => {
   const productName = "iPhone 16";
-  const adminEmail = `admin.${Date.now()}.${Math.floor(Math.random() * 10000)}@test.com`;
-  const adminPwd = "testpassword";
-
-  cy.request({
-    method: "POST",
-    url: "https://serverest.dev/usuarios",
-    body: { nome: "Admin QA", email: adminEmail, password: adminPwd, administrador: "true" },
-    failOnStatusCode: false,
-  }).then(() => {
-    cy.request({
-      method: "POST",
-      url: "https://serverest.dev/login",
-      body: { email: adminEmail, password: adminPwd },
-    }).then((adminRes) => {
-      const adminToken = adminRes.body.authorization;
-      cy.request({
-        method: "POST",
-        url: "https://serverest.dev/produtos",
-        headers: { Authorization: adminToken },
-        body: { nome: productName, preco: 6000, descricao: "Phone", quantidade: 50 },
-        failOnStatusCode: false,
-      }).then(() => {
-        cy.visit("/home");
-        HomePage.searchProduct(productName);
-        cy.contains(productName, { timeout: 15000 }).should("be.visible");
-        HomePage.clickProductDetails(productName);
-        cy.contains("Adicionar a lista", { timeout: 10000 }).should("be.visible").click();
-      });
-    });
+  // DRY: Using custom command to create product
+  cy.createAdminAndProduct(productName).then(() => {
+    cy.visit("/home");
+    HomePage.searchProduct(productName);
+    cy.contains(productName, { timeout: 15000 }).should("be.visible");
+    HomePage.clickProductDetails(productName);
+    cy.contains("Adicionar a lista", { timeout: 10000 }).should("be.visible").click();
   });
 });
 
@@ -245,7 +184,7 @@ Then("validation messages should be displayed for the required fields", () => {
 });
 
 Then("the matching product should be displayed in the results", () => {
-  cy.contains("Intel Core i5").should("be.visible");
+  cy.contains("Intel Core i5", { timeout: 15000 }).should("be.visible");
 });
 
 Then("the product details page should be displayed", () => {
@@ -280,7 +219,7 @@ Then("the product quantity should be updated", () => {
     .parent()
     .then(($container) => {
       const current = readQty($container, "Intel Core i5");
-      expect(current).to.be.greaterThan(1);
+      expect(current, "Quantity should be increased").to.be.greaterThan(1);
     });
 });
 
@@ -290,6 +229,6 @@ Then("the product quantity should be reduced to one", () => {
     .parent()
     .then(($container) => {
       const current = readQty($container, "Intel Core i5");
-      expect(current).to.eq(1);
+      expect(current, "Quantity should be 1").to.eq(1);
     });
 });
