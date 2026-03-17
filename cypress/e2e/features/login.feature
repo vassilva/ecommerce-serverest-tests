@@ -8,3 +8,4 @@ Feature: User Login
     Then the user should be redirected to the home page and be logged in
     And the user performs the logout
     Then the user should be logged out successfully
+    
