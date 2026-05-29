@@ -14,7 +14,6 @@ When("fills in the login form with valid data", () => {
   });
 });
 
-
 When("submits the login form", () => {
   LoginPage.submit();
 });
