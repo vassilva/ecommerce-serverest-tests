@@ -1,4 +1,4 @@
-import './commands';
+import "./commands";
 
 afterEach(() => {
   cy.location("href", { log: false }).then((href) => {
