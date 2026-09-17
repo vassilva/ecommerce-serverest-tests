@@ -1,6 +1,7 @@
 class ShoppingListPage {
   elements = {
-    productInShoppingList: (name) => cy.contains('[data-testid="shopping-cart-product-name"]', name),
+    productInShoppingList: (name) =>
+      cy.contains('[data-testid="shopping-cart-product-name"]', name),
     qtyContainerByProduct: (name) => cy.contains(name).closest(".card"),
     qtyIncreaseButton: ($container) =>
       cy.wrap($container).find('[data-testid="product-increase-quantity"]'),

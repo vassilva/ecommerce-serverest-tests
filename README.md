@@ -41,7 +41,7 @@ This project uses four Cucumber tags to select different execution suites. Tags 
 ### Current scenario counts (validated baseline)
 
 | Tag           | Scenarios |
-|---------------|-----------|
+| ------------- | --------- |
 | `@smoke`      | 3         |
 | `@regression` | 21        |
 | `@negative`   | 12        |
@@ -51,9 +51,9 @@ These counts represent **selected** scenarios per suite and should not be summed
 
 ### Running a suite
 
-| Suite       | Command                     | Purpose                                                    |
-|-------------|------------------------------|--------------------------------------------------------------|
-| Smoke       | `npm run cy:run:smoke`       | Fast validation of critical flows.                          |
-| Regression  | `npm run cy:run:regression`  | Broader validation after meaningful application changes.   |
-| Negative    | `npm run cy:run:negative`    | Focused validation of validation/error behavior.            |
-| API         | `npm run cy:run:api`         | Focused validation of API contracts/integration behavior.   |
+| Suite      | Command                     | Purpose                                                   |
+| ---------- | --------------------------- | --------------------------------------------------------- |
+| Smoke      | `npm run cy:run:smoke`      | Fast validation of critical flows.                        |
+| Regression | `npm run cy:run:regression` | Broader validation after meaningful application changes.  |
+| Negative   | `npm run cy:run:negative`   | Focused validation of validation/error behavior.          |
+| API        | `npm run cy:run:api`        | Focused validation of API contracts/integration behavior. |
