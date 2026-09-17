@@ -8,9 +8,15 @@ class SignupPage {
   };
 
   fillForm(name, email, password) {
-    this.elements.nameInput().type(name);
-    this.elements.emailInput().type(email);
-    this.elements.passwordInput().type(password, { log: false });
+    if (name !== "") {
+      this.elements.nameInput().type(name);
+    }
+    if (email !== "") {
+      this.elements.emailInput().type(email);
+    }
+    if (password !== "") {
+      this.elements.passwordInput().type(password, { log: false });
+    }
   }
 
   submit() {

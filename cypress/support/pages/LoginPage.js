@@ -4,12 +4,18 @@ class LoginPage {
   }
 
   clickSignUp() {
-    cy.contains("Cadastre-se").click();
+    cy.fixture("login").then((loginData) => {
+      cy.contains(loginData.labels.signUpLink).click();
+    });
   }
 
   fillLogin(email, password) {
-    cy.get('[data-testid="email"]').type(email);
-    cy.get('[data-testid="senha"]').type(password, { log: false });
+    if (email !== "") {
+      cy.get('[data-testid="email"]').type(email);
+    }
+    if (password !== "") {
+      cy.get('[data-testid="senha"]').type(password, { log: false });
+    }
   }
 
   submit() {
@@ -18,6 +24,13 @@ class LoginPage {
 
   verifyErrorMessage(message) {
     cy.contains(message).should("be.visible");
+  }
+
+  verifyLoginPageDisplayed() {
+    cy.url().should("include", "/login");
+    cy.get('h1, button, [data-testid="entrar"]')
+      .contains(/Entrar|Login/i)
+      .should("be.visible");
   }
 }
 

@@ -1,0 +1,27 @@
+{
+  "validUser": {
+    "nome": "Automation User",
+    "password": "testpassword",
+    "administrador": "false"
+  },
+  "validAdmin": {
+    "nome": "Admin QA",
+    "password": "adminpassword",
+    "administrador": "true"
+  },
+  "existingEmail": "fulano@qa.com",
+  "invalidPassword": "wrongpassword",
+  "invalidEmailFormat": "invalid-email-format",
+  "emptyPassword": "",
+  "emptyName": "",
+  "messages": {
+    "loginSuccess": "Login realizado com sucesso",
+    "userCreated": "Cadastro realizado com sucesso",
+    "emailAlreadyInUse": "Este email já está sendo usado"
+  },
+  "validationMessages": {
+    "nameRequired": "Nome é obrigatório",
+    "emailRequired": "Email é obrigatório",
+    "passwordRequired": "Password é obrigatório"
+  }
+}

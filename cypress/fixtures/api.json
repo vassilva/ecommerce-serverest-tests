@@ -1,0 +1,19 @@
+{
+  "success": {
+    "userCreated": 201,
+    "loginSuccess": 200,
+    "productCreated": 201,
+    "getSuccess": 200
+  },
+  "clientError": {
+    "badRequest": 400,
+    "unauthorized": 401,
+    "forbidden": 403,
+    "notFound": 404,
+    "conflict": 409
+  },
+  "serverError": {
+    "internalServerError": 500
+  },
+  "contentType": "application/json; charset=utf-8"
+}

@@ -1,0 +1,7 @@
+{
+  "loginPath": "/login",
+  "homePath": "/home",
+  "signupPath": "/cadastrarusuarios",
+  "productDetailsPath": "/detalhesProduto/",
+  "shoppingListPath": "/minhaListaDeProdutos"
+}

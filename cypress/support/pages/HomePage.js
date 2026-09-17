@@ -1,9 +1,13 @@
 class HomePage {
   elements = {
-    logoutButton: () => cy.contains("Logout"),
+    logoutButton: () => cy.get('[data-testid="logout"]'),
     searchInput: () => cy.get('[data-testid="pesquisar"]'),
     searchButton: () => cy.get('[data-testid="botaoPesquisar"]'),
-    productList: () => cy.get(".card"),
+    productCardByName: (name) =>
+      cy
+        .contains('[class*="card"] [class*="title"], [class*="card"] h5, [class*="card"] h3', name)
+        .closest(".card"),
+    detailsLinkInCard: ($card) => cy.wrap($card).find("a[href*='detalhesProduto']").first(),
   };
 
   visit() {
@@ -15,39 +19,48 @@ class HomePage {
     this.elements.logoutButton().should("be.visible");
   }
 
+  waitForPageReady() {
+    this.elements.searchInput().should("be.visible");
+    this.elements.searchButton().should("be.enabled");
+  }
+
   searchProduct(productName) {
-    this.elements.searchInput().clear().type(productName);
-    this.elements.searchButton().click();
+    this.elements.searchInput().should("be.visible").clear().type(productName);
+    this.elements.searchButton().should("be.enabled").click();
+  }
+
+  findCardByProductName(productName) {
+    return this.elements.productCardByName(productName).should("exist").and("be.visible");
   }
 
   clickProductDetails(productName) {
-    // Try to find the link near the product name, regardless of container class
-    cy.contains(productName)
-      .parentsUntil('div[class*="col"]')
-      .find("a[href*='detalhesProduto']")
-      .first()
-      .click();
-  }
-
-  addProductToList(productName) {
-    // Try to find the button near the product name
-    cy.contains(productName)
-      .parentsUntil('div[class*="col"]')
-      .find("button")
-      .contains("Adicionar a lista")
-      .click();
-  }
-
-  logout(wait = true) {
-    if (wait) {
-      cy.then(() => new Promise((resolve) => setTimeout(resolve, 2000)));
-    }
-    cy.window().then((win) => {
-      try {
-        win.localStorage.removeItem("serverest/userToken");
-      } catch {}
+    this.findCardByProductName(productName).then(($card) => {
+      this.elements.detailsLinkInCard($card).should("exist").and("be.visible").click();
     });
-    cy.visit("/login");
+    cy.url({ timeout: 10000 }).should("include", "/detalhesProduto/");
+  }
+
+  verifyNoProductsFoundOrEmptyList() {
+    cy.get("body").then(($body) => {
+      const hasNoResultsMessage =
+        $body.is(":contains('Nenhum produto encontrado')") ||
+        $body.is(":contains('Nenhum resultado')") ||
+        $body.is(":contains('Não encontrado')") ||
+        $body.find('[class*="card"]').length === 0;
+      expect(hasNoResultsMessage, "Should display no results or empty list").to.be.true;
+    });
+  }
+
+  searchAndOpenProductDetails(productName) {
+    this.visit();
+    this.waitForPageReady();
+    this.searchProduct(productName);
+    this.findCardByProductName(productName);
+    this.clickProductDetails(productName);
+  }
+
+  logout() {
+    this.elements.logoutButton().should("be.visible").click();
     cy.url().should("include", "/login");
   }
 }

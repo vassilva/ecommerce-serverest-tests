@@ -1,0 +1,25 @@
+{
+  "searchProduct": "Intel Core i5",
+  "secondaryProduct": "iPhone 16",
+  "defaultProduct": {
+    "preco": 1500,
+    "descricao": "Automated Product",
+    "quantidade": 100
+  },
+  "nonexistentProduct": "Produto Inexistente 12345XYZ",
+  "invalidProductData": {
+    "emptyName": "",
+    "negativePrice": -50,
+    "negativeQuantity": -10
+  },
+  "invalidProductMessages": {
+    "nome": "nome não pode ficar em branco",
+    "preco": "preco deve ser um número positivo",
+    "quantidade": "quantidade deve ser maior ou igual a 0"
+  },
+  "productCreatedMessage": "Cadastro realizado com sucesso",
+  "labels": {
+    "addToListButton": "Adicionar a lista",
+    "clearListButtonLabels": ["Limpar", "Clear"]
+  }
+}

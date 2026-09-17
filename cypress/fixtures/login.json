@@ -1,0 +1,35 @@
+{
+  "valid": {
+    "email": "valid.user@test.com",
+    "password": "testpassword"
+  },
+  "invalid": {
+    "wrongPassword": {
+      "email": "valid.user@test.com",
+      "password": "wrongpassword"
+    },
+    "nonexistentEmail": {
+      "email": "nonexistent.user@test.com",
+      "password": "testpassword"
+    },
+    "emptyEmail": {
+      "email": "",
+      "password": "testpassword"
+    },
+    "emptyPassword": {
+      "email": "valid.user@test.com",
+      "password": ""
+    }
+  },
+  "errors": {
+    "invalidCredentials": "Email e/ou senha inválidos",
+    "emailRequired": "Email é obrigatório",
+    "passwordRequired": "Password é obrigatório"
+  },
+  "messages": {
+    "loginSuccess": "Login realizado com sucesso"
+  },
+  "labels": {
+    "signUpLink": "Cadastre-se"
+  }
+}
