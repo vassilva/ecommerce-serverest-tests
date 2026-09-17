@@ -9,7 +9,7 @@ on:
       - "**"
 
 jobs:
-  lint-and-test:
+  ci:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -20,21 +20,21 @@ jobs:
           cache: npm
 
       - run: npm ci
+
       - run: npm run lint
+
       - run: npm run format:check
-      - run: npm run test
 
-  regression:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
+      - run: npm run cy:run:smoke
 
-      - uses: actions/setup-node@v4
+      - run: npm run cy:run:regression
+
+      - name: Upload Cypress artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
         with:
-          node-version: 20
-          cache: npm
-
-      - run: npm ci
-      - name: Run Regression Tests
-        run: npm run cy:run:regression
-        continue-on-error: false
+          name: cypress-artifacts
+          path: |
+            cypress/screenshots
+            cypress/videos
+          if-no-files-found: ignore
