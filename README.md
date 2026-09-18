@@ -27,7 +27,7 @@ To run the tests locally, install dependencies with `npm install`, execute all t
 - `npm run cy:run:smoke`: Runs critical tests tagged with @smoke.
 - `npm run cy:run:regression`: Runs full regression suite tagged with @regression.
 
-The project uses GitHub Actions to run linting, formatting checks, and the smoke test suite on every push and pull request, plus a separate job for the full regression E2E suite.
+The project uses GitHub Actions for two distinct CI pipelines. **Fast CI** runs on every push and executes linting, formatting checks, and the smoke suite for fast feedback. **Full CI / PR Quality Gate** runs on pull requests targeting `main` and executes linting, formatting checks, the smoke suite, and the full regression suite; this check is required to pass before a pull request can be merged into `main`.
 
 ## Test Tag Strategy
 
