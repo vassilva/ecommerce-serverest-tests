@@ -1,9 +1,12 @@
 pipeline {
     agent {
-        docker { 
-            image 'justb4/jmeter:latest' 
-            args '-u root --entrypoint=""' 
+        docker {
+            image 'justb4/jmeter:latest'
+            args '-u root --entrypoint=""'
         }
+    }
+    options {
+        buildDiscarder(logRotator(numToKeepStr: '5'))
     }
     stages {
         stage('Checkout') { steps { checkout scm } }
