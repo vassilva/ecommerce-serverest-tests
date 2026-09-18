@@ -27,7 +27,7 @@ To run the tests locally, install dependencies with `npm install`, execute all t
 - `npm run cy:run:smoke`: Runs critical tests tagged with @smoke.
 - `npm run cy:run:regression`: Runs full regression suite tagged with @regression.
 
-The project uses GitHub Actions to run linting, formatting checks, and the smoke test suite on every push and pull request, plus a separate job for the full regression E2E suite.
+The project uses GitHub Actions for two distinct CI pipelines. **Fast CI** runs on every push and executes linting, formatting checks, and the smoke suite for fast feedback. **Full CI / PR Quality Gate** runs on pull requests targeting `main` and executes linting, formatting checks, the smoke suite, and the full regression suite; this check is required to pass before a pull request can be merged into `main`.
 
 ## Test Tag Strategy
 
@@ -41,7 +41,7 @@ This project uses four Cucumber tags to select different execution suites. Tags 
 ### Current scenario counts (validated baseline)
 
 | Tag           | Scenarios |
-|---------------|-----------|
+| ------------- | --------- |
 | `@smoke`      | 3         |
 | `@regression` | 21        |
 | `@negative`   | 12        |
@@ -51,9 +51,9 @@ These counts represent **selected** scenarios per suite and should not be summed
 
 ### Running a suite
 
-| Suite       | Command                     | Purpose                                                    |
-|-------------|------------------------------|--------------------------------------------------------------|
-| Smoke       | `npm run cy:run:smoke`       | Fast validation of critical flows.                          |
-| Regression  | `npm run cy:run:regression`  | Broader validation after meaningful application changes.   |
-| Negative    | `npm run cy:run:negative`    | Focused validation of validation/error behavior.            |
-| API         | `npm run cy:run:api`         | Focused validation of API contracts/integration behavior.   |
+| Suite      | Command                     | Purpose                                                   |
+| ---------- | --------------------------- | --------------------------------------------------------- |
+| Smoke      | `npm run cy:run:smoke`      | Fast validation of critical flows.                        |
+| Regression | `npm run cy:run:regression` | Broader validation after meaningful application changes.  |
+| Negative   | `npm run cy:run:negative`   | Focused validation of validation/error behavior.          |
+| API        | `npm run cy:run:api`        | Focused validation of API contracts/integration behavior. |

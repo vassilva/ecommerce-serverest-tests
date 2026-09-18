@@ -263,19 +263,22 @@ Then("the products list API response should have correct structure and status", 
   });
 });
 
-Then("product creation should be rejected with validation errors for name, price and quantity", () => {
-  cy.fixture("products").then((productsData) => {
-    cy.get("@invalidProductResponse").then((response) => {
-      expect(response.status, "Invalid product creation status").to.eq(400);
-      expect(response.body.nome, "Name validation message").to.eq(
-        productsData.invalidProductMessages.nome
-      );
-      expect(response.body.preco, "Price validation message").to.eq(
-        productsData.invalidProductMessages.preco
-      );
-      expect(response.body.quantidade, "Quantity validation message").to.eq(
-        productsData.invalidProductMessages.quantidade
-      );
+Then(
+  "product creation should be rejected with validation errors for name, price and quantity",
+  () => {
+    cy.fixture("products").then((productsData) => {
+      cy.get("@invalidProductResponse").then((response) => {
+        expect(response.status, "Invalid product creation status").to.eq(400);
+        expect(response.body.nome, "Name validation message").to.eq(
+          productsData.invalidProductMessages.nome
+        );
+        expect(response.body.preco, "Price validation message").to.eq(
+          productsData.invalidProductMessages.preco
+        );
+        expect(response.body.quantidade, "Quantity validation message").to.eq(
+          productsData.invalidProductMessages.quantidade
+        );
+      });
     });
-  });
-});
+  }
+);
