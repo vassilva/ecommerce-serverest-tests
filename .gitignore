@@ -9,3 +9,4 @@ smoke-test-output.log
 .appdata/
 cypress.env.json
 *.log
+.simulated-release/
