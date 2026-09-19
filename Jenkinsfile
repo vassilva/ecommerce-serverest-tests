@@ -80,20 +80,10 @@ pipeline {
           rm -rf .simulated-release
           mkdir -p "$STAGE"
 
-          allowlist=(
-            "cypress/e2e"
-            "cypress/support"
-            "cypress.config.js"
-            ".cypress-cucumber-preprocessorrc.json"
-            "package.json"
-            "package-lock.json"
-            "README.md"
-            ".github/workflows/ci.yml"
-            "Jenkinsfile"
-          )
+          allowlist="cypress/e2e cypress/support cypress.config.js .cypress-cucumber-preprocessorrc.json package.json package-lock.json README.md .github/workflows/ci.yml Jenkinsfile"
 
           missing=0
-          for p in "${allowlist[@]}"; do
+          for p in $allowlist; do
             if [ ! -e "$p" ]; then
               echo "Missing required release path: $p"
               missing=1
@@ -104,7 +94,7 @@ pipeline {
             exit 1
           fi
 
-          for p in "${allowlist[@]}"; do
+          for p in $allowlist; do
             dest="$STAGE/$(dirname "$p")"
             mkdir -p "$dest"
             cp -r "$p" "$dest/"
