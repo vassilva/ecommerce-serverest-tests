@@ -3,8 +3,6 @@ cypress/videos
 cypress/screenshots
 cypress/downloads
 .env
-jmeter/results/*
-jmeter/reports/*
 smoke-test-output.log
 .cypress-cache/
 .temp/
