@@ -25,47 +25,63 @@ pipeline {
 
     stage('Lint') {
       steps {
-        /* * catchError prevents the pipeline from failing if there are linting issues.
-         * The stage will be marked as UNSTABLE (yellow) instead of FAILED (red).
-         */
-        catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
-            sh 'npm run lint'
-        }
+        sh 'npm run lint'
       }
     }
 
     stage('Format check') {
       steps {
-        /* * Validates code style using Prettier. 
-         * If formatting issues are found, the pipeline continues to the Tests stage.
-         */
-        catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
-            sh 'npm run format:check'
-        }
+        sh 'npm run format:check'
       }
     }
 
-    stage('Tests') {
+    // Feature/other plain branches: Fast CI.
+    stage('Feature Smoke Tests') {
+      when {
+        allOf {
+          expression { env.CHANGE_ID == null }
+          not { branch 'main' }
+        }
+      }
       steps {
-        // Executes the automated tests in headless mode
-        sh 'npm run test'
+        sh 'npm run cy:run:smoke'
+      }
+    }
+
+    // main: post-merge CI today; CD stages will be added here later.
+    stage('Main Smoke Tests') {
+      when {
+        allOf {
+          expression { env.CHANGE_ID == null }
+          branch 'main'
+        }
+      }
+      steps {
+        sh 'npm run cy:run:smoke'
+      }
+    }
+
+    stage('Regression Tests') {
+      when {
+        expression { env.CHANGE_ID != null }
+      }
+      steps {
+        sh 'npm run cy:run:regression'
       }
     }
   }
-  
+
   post {
     always {
-        // Executed regardless of the build status-PIPE
-        echo 'Finishing the ServeRest automation pipeline execution...'
+      // Executed regardless of the build status
+      echo 'Finishing the ServeRest automation pipeline execution...'
     }
     success {
-        echo 'Pipeline executed successfully!'
-    }
-    unstable {
-        echo 'Pipeline finished with warnings (check Lint or Format stages).'
+      echo 'Pipeline executed successfully!'
     }
     failure {
-        echo 'Pipeline failed. Please check the Console Output for details.'
+      archiveArtifacts artifacts: 'cypress/screenshots/**, cypress/videos/**', allowEmptyArchive: true
+      echo 'Pipeline failed. Please check the Console Output for details.'
     }
   }
 }
