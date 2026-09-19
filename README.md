@@ -57,3 +57,13 @@ These counts represent **selected** scenarios per suite and should not be summed
 | Regression | `npm run cy:run:regression` | Broader validation after meaningful application changes.  |
 | Negative   | `npm run cy:run:negative`   | Focused validation of validation/error behavior.          |
 | API        | `npm run cy:run:api`        | Focused validation of API contracts/integration behavior. |
+
+## Simulated Release / CD
+
+GitHub Actions is the authoritative functional CI for this repository. The **Full CI / PR Quality Gate** workflow protects integration into `main` (required to pass before merge), and **Fast CI** re-validates every merge commit that lands on `main`.
+
+Only a successful Fast CI run on `main` can trigger the **Simulated Release** workflow, via GitHub's `workflow_run` mechanism, which provides the upstream CI run's exact commit and conclusion. The release job checks out that exact validated `head_sha` — never an implicit, possibly-moved `main` tip — and packages a reproducible snapshot of the QA automation project (Cypress suite, support code, config, `package.json`/`package-lock.json`, pipeline definitions, and this README) together with a `release-manifest.json` describing the commit, upstream CI run, and toolchain versions.
+
+The artifact and a `simulated-release` GitHub Environment deployment record together provide traceable, inspectable release evidence.
+
+**This is explicitly a simulation.** No real DEV, UAT, PREPROD, or PROD environment exists for this repository, and **no real application deployment is performed** by this workflow — this is stated directly in the generated manifest as well. Jenkins remains reserved for performance/JMeter work, which is currently dormant/frozen and intentionally out of this CI/CD scope.

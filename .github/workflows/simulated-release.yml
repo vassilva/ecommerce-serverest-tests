@@ -1,0 +1,226 @@
+name: Simulated Release
+
+on:
+  workflow_run:
+    workflows:
+      - CI
+    types:
+      - completed
+
+permissions:
+  contents: read
+  deployments: write
+
+jobs:
+  simulated-release:
+    name: Simulated Release / Artifact
+    runs-on: ubuntu-latest
+    environment: simulated-release
+    if: >
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'main'
+    steps:
+      - name: Checkout exact validated commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Compute short SHA
+        run: |
+          echo "SHORT_SHA=$(echo "${{ github.event.workflow_run.head_sha }}" | cut -c1-7)" >> "$GITHUB_ENV"
+
+      - name: Validate expected release paths exist
+        run: |
+          required_paths=(
+            "cypress/e2e"
+            "cypress/support"
+            "cypress.config.js"
+            ".cypress-cucumber-preprocessorrc.json"
+            "package.json"
+            "package-lock.json"
+            "README.md"
+            ".github/workflows/ci.yml"
+            "Jenkinsfile"
+            "Jenkinsfile.jmeter"
+          )
+          missing=0
+          for p in "${required_paths[@]}"; do
+            if [ ! -e "$p" ]; then
+              echo "Missing required release path: $p"
+              missing=1
+            fi
+          done
+          if [ "$missing" -eq 1 ]; then
+            echo "One or more required release paths are missing. Aborting release."
+            exit 1
+          fi
+
+      - name: Stage release package (explicit allowlist only)
+        run: |
+          set -e
+          STAGE="release-package"
+          rm -rf "$STAGE"
+          mkdir -p "$STAGE"
+
+          allowlist=(
+            "cypress/e2e"
+            "cypress/support"
+            "cypress.config.js"
+            ".cypress-cucumber-preprocessorrc.json"
+            "package.json"
+            "package-lock.json"
+            "README.md"
+            ".github/workflows/ci.yml"
+            "Jenkinsfile"
+            "Jenkinsfile.jmeter"
+          )
+
+          for p in "${allowlist[@]}"; do
+            dest="$STAGE/$(dirname "$p")"
+            mkdir -p "$dest"
+            cp -r "$p" "$dest/"
+          done
+
+      - name: Resolve release metadata
+        id: metadata
+        run: |
+          echo "node_version=$(node -v)" >> "$GITHUB_OUTPUT"
+          echo "cypress_version=$(node -p "require('./node_modules/cypress/package.json').version")" >> "$GITHUB_OUTPUT"
+          echo "package_version=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+
+      - name: Generate release manifest
+        env:
+          UPSTREAM_SHA: ${{ github.event.workflow_run.head_sha }}
+          SHORT_SHA: ${{ env.SHORT_SHA }}
+          UPSTREAM_RUN_ID: ${{ github.event.workflow_run.id }}
+          UPSTREAM_RUN_NUMBER: ${{ github.event.workflow_run.run_number }}
+          UPSTREAM_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          NODE_VERSION: ${{ steps.metadata.outputs.node_version }}
+          CYPRESS_VERSION: ${{ steps.metadata.outputs.cypress_version }}
+          PACKAGE_VERSION: ${{ steps.metadata.outputs.package_version }}
+        run: |
+          node -e "
+            const fs = require('fs');
+
+            const manifest = {
+              project: 'automacao-serverest',
+              releaseType: 'simulated',
+              simulatedDeployment: true,
+              realDeploymentPerformed: false,
+              disclaimer: 'This artifact is a simulated release generated for portfolio and demonstration purposes. It does not represent a deployment to any real DEV, UAT, PREPROD, or PROD environment, and no such environment exists for this repository.',
+              gitSha: process.env.UPSTREAM_SHA,
+              gitShaShort: process.env.SHORT_SHA,
+              branch: 'main',
+              upstreamWorkflow: 'CI',
+              upstreamRunId: process.env.UPSTREAM_RUN_ID,
+              upstreamRunNumber: process.env.UPSTREAM_RUN_NUMBER,
+              upstreamConclusion: process.env.UPSTREAM_CONCLUSION,
+              timestampUtc: new Date().toISOString(),
+              nodeVersion: process.env.NODE_VERSION,
+              cypressVersion: process.env.CYPRESS_VERSION,
+              packageVersion: process.env.PACKAGE_VERSION,
+              deploymentTarget: 'none',
+              artifactContents: [
+                'cypress/e2e',
+                'cypress/support',
+                'cypress.config.js',
+                '.cypress-cucumber-preprocessorrc.json',
+                'package.json',
+                'package-lock.json',
+                'README.md',
+                '.github/workflows/ci.yml',
+                'Jenkinsfile',
+                'Jenkinsfile.jmeter'
+              ]
+            };
+
+            fs.writeFileSync('release-package/release-manifest.json', JSON.stringify(manifest, null, 2));
+            console.log('release-manifest.json written.');
+          "
+
+      - name: Validate release manifest
+        run: |
+          node -e "
+            const fs = require('fs');
+            const raw = fs.readFileSync('release-package/release-manifest.json', 'utf8');
+            const m = JSON.parse(raw);
+
+            const requiredFields = [
+              'project','releaseType','simulatedDeployment','realDeploymentPerformed',
+              'disclaimer','gitSha','gitShaShort','branch','upstreamWorkflow',
+              'upstreamRunId','upstreamRunNumber','upstreamConclusion','timestampUtc',
+              'nodeVersion','cypressVersion','packageVersion','deploymentTarget','artifactContents'
+            ];
+
+            for (const field of requiredFields) {
+              if (m[field] === undefined || m[field] === null || m[field] === '') {
+                console.error('Manifest validation failed: missing or empty field: ' + field);
+                process.exit(1);
+              }
+            }
+
+            if (m.simulatedDeployment !== true) {
+              console.error('Manifest validation failed: simulatedDeployment must be true');
+              process.exit(1);
+            }
+            if (m.realDeploymentPerformed !== false) {
+              console.error('Manifest validation failed: realDeploymentPerformed must be false');
+              process.exit(1);
+            }
+            if (m.deploymentTarget !== 'none') {
+              console.error('Manifest validation failed: deploymentTarget must be none');
+              process.exit(1);
+            }
+            if (m.releaseType !== 'simulated') {
+              console.error('Manifest validation failed: releaseType must be simulated');
+              process.exit(1);
+            }
+            if (m.branch !== 'main') {
+              console.error('Manifest validation failed: branch must be main');
+              process.exit(1);
+            }
+            if (m.upstreamWorkflow !== 'CI') {
+              console.error('Manifest validation failed: upstreamWorkflow must be CI');
+              process.exit(1);
+            }
+            if (m.upstreamConclusion !== 'success') {
+              console.error('Manifest validation failed: upstreamConclusion must be success');
+              process.exit(1);
+            }
+
+            console.log('Release manifest validated successfully.');
+          "
+
+      - name: Upload release artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: simulated-release-${{ env.SHORT_SHA }}
+          path: release-package/
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: Write job summary
+        run: |
+          {
+            echo "## SIMULATED RELEASE"
+            echo ""
+            echo "**No real application deployment was performed.**"
+            echo ""
+            echo "| Field | Value |"
+            echo "| --- | --- |"
+            echo "| Project | automacao-serverest |"
+            echo "| Git SHA | \`${{ github.event.workflow_run.head_sha }}\` |"
+            echo "| Upstream CI run | [${{ github.event.workflow_run.name }} #${{ github.event.workflow_run.run_number }}](${{ github.event.workflow_run.html_url }}) |"
+            echo "| Artifact name | simulated-release-${{ env.SHORT_SHA }} |"
+            echo "| Environment | simulated-release |"
+          } >> "$GITHUB_STEP_SUMMARY"
