@@ -69,6 +69,19 @@ pipeline {
         sh 'npm run cy:run:regression'
       }
     }
+
+    // TEMPORARY — controlled negative validation of the Jenkins PR quality
+    // gate publication to GitHub. Remove after the gate-failure test PR
+    // has been observed and validated.
+    stage('Controlled Gate Failure') {
+      when {
+        expression { env.CHANGE_ID != null }
+      }
+      steps {
+        echo 'INTENTIONAL FAILURE: validating Jenkins PR quality gate publication.'
+        sh 'exit 1'
+      }
+    }
   }
 
   post {
