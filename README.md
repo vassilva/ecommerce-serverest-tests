@@ -14,12 +14,6 @@ The `cypress/e2e` directory is organized as follows:
 
 Page objects are located under `cypress/support/pages`. CI workflows are defined under `.github/workflows`.
 
-The `jmeter/` directory contains non-functional performance tests:
-
-- `tests/`: Contains JMX files for performance tests (e.g., `load_products.jmx`).
-- `results/`: Contains execution results (e.g., `load-results.jtl`).
-- `reports/`: Folder for generated HTML performance reports.
-
 The E2E strategy focuses on scenario independence, minimal duplication, and categorized test execution.
 
 To run the tests locally, install dependencies with `npm install`, execute all tests with `npx cypress run`, or run categorized tests:
@@ -66,4 +60,8 @@ Only a successful Fast CI run on `main` can trigger the **Simulated Release** wo
 
 The artifact and a `simulated-release` GitHub Environment deployment record together provide traceable, inspectable release evidence.
 
-**This is explicitly a simulation.** No real DEV, UAT, PREPROD, or PROD environment exists for this repository, and **no real application deployment is performed** by this workflow — this is stated directly in the generated manifest as well. Jenkins remains reserved for performance/JMeter work, which is currently dormant/frozen and intentionally out of this CI/CD scope.
+**This is explicitly a simulation.** No real DEV, UAT, PREPROD, or PROD environment exists for this repository, and **no real application deployment is performed** by this workflow — this is stated directly in the generated manifest as well.
+
+**Current state:** GitHub Actions remains the currently validated CI and Simulated Release/CD path for this repository.
+
+**Planned state:** Jenkins is planned to later become a second CI/CD orchestrator, running smoke tests on feature pushes, the full regression suite on pull requests, reporting quality-gate results back to GitHub, and separately handling release orchestration, artifact/provenance validation, simulated deployment, post-deployment smoke validation, and deployment evidence. **This Jenkins architecture is planned and not yet implemented** — Jenkins does not currently perform any of these responsibilities.

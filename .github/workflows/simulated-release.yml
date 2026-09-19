@@ -51,7 +51,6 @@ jobs:
             "README.md"
             ".github/workflows/ci.yml"
             "Jenkinsfile"
-            "Jenkinsfile.jmeter"
           )
           missing=0
           for p in "${required_paths[@]}"; do
@@ -82,7 +81,6 @@ jobs:
             "README.md"
             ".github/workflows/ci.yml"
             "Jenkinsfile"
-            "Jenkinsfile.jmeter"
           )
 
           for p in "${allowlist[@]}"; do
@@ -139,8 +137,7 @@ jobs:
                 'package-lock.json',
                 'README.md',
                 '.github/workflows/ci.yml',
-                'Jenkinsfile',
-                'Jenkinsfile.jmeter'
+                'Jenkinsfile'
               ]
             };
 
