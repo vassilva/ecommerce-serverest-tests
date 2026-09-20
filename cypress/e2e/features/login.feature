@@ -3,7 +3,7 @@ Feature: User Login
   Background:
     Given the login API is being intercepted
 
-  @smoke @regression
+  @smoke @regression @sanity
   Scenario: Login with valid credentials
     Given the user is on the login page
     When fills in the login form with valid data

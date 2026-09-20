@@ -3,7 +3,7 @@ Feature: Product Search and Details
   Background:
     Given the products search API is being intercepted
 
-  @smoke @regression
+  @smoke @regression @sanity
   Scenario: Search for a valid product successfully
     Given the user is logged into the system
     And the user is on the home page
@@ -27,7 +27,7 @@ Feature: Product Search and Details
     When the user selects the product Intel Core i5 directly from the list on the home page
     Then the product details page should be displayed
 
-  @regression
+  @regression @sanity
   Scenario: Add product to the shopping list
     Given the user is logged into the system
     And the user is on the home page

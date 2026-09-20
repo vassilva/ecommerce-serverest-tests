@@ -3,7 +3,7 @@ Feature: User Registration
   Background:
     Given the user registration API is being intercepted
 
-  @smoke @regression
+  @smoke @regression @sanity
   Scenario: Register a new user successfully
     Given the user is on the registration page
     When fills in the registration data with valid information

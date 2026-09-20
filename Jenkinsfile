@@ -48,8 +48,9 @@ pipeline {
       }
     }
 
-    // main: post-merge CI.
-    stage('Main Smoke Tests') {
+    // main: pre-deployment blocking quality gate. A failure here must stop the
+    // pipeline before any simulated release/deployment stage runs.
+    stage('Main Sanity Tests') {
       when {
         allOf {
           expression { env.CHANGE_ID == null }
@@ -57,7 +58,7 @@ pipeline {
         }
       }
       steps {
-        sh 'npm run cy:run:smoke'
+        sh 'npm run cy:run:sanity'
       }
     }
 
