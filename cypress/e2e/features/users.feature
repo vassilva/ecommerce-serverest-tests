@@ -14,7 +14,8 @@ Feature: User Registration
 
   @regression @negative
   Scenario: Try to register a user with an existing email
-    Given the user is on the registration page
+    Given a regular user has already been registered via the API
+    And the user is on the registration page
     When fills in the registration data with an existing email
     And submits the registration form
     Then the user registration API request should fail with status 400

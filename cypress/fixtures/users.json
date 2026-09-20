@@ -9,7 +9,6 @@
     "password": "adminpassword",
     "administrador": "true"
   },
-  "existingEmail": "fulano@qa.com",
   "invalidPassword": "wrongpassword",
   "invalidEmailFormat": "invalid-email-format",
   "emptyPassword": "",
