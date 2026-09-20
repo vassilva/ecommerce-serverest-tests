@@ -133,6 +133,10 @@ Then("the user registration API response should contain a valid user ID", () => 
     .its("response.body")
     .then((body) => {
       expect(body._id, "User ID should exist").to.be.a("string").and.not.empty;
+      // The signup form creates this user directly (not via apiCreateUser), so it must be
+      // tracked here for the existing After() cleanup hook to delete it like any other
+      // test-created user.
+      cy.trackForCleanup({ type: "user", id: body._id });
     });
 });
 
