@@ -57,13 +57,13 @@ These counts represent **selected** scenarios per suite and should not be summed
 
 To run the tests locally, install dependencies with `npm install`, execute all tests with `npx cypress run`, or run a categorized suite:
 
-| Suite      | Command                     | Purpose                                                        |
-| ---------- | ---------------------------- | -------------------------------------------------------------- |
-| Smoke      | `npm run cy:run:smoke`      | Fast validation of critical flows on feature branches.         |
+| Suite      | Command                     | Purpose                                                             |
+| ---------- | --------------------------- | ------------------------------------------------------------------- |
+| Smoke      | `npm run cy:run:smoke`      | Fast validation of critical flows on feature branches.              |
 | Sanity     | `npm run cy:run:sanity`     | Pre-deployment confidence gate on `main`, before simulated release. |
-| Regression | `npm run cy:run:regression` | Broader validation on Pull Requests before merge.               |
-| Negative   | `npm run cy:run:negative`   | Focused validation of validation/error behavior.                |
-| API        | `npm run cy:run:api`        | Focused validation of API contracts/integration behavior.       |
+| Regression | `npm run cy:run:regression` | Broader validation on Pull Requests before merge.                   |
+| Negative   | `npm run cy:run:negative`   | Focused validation of validation/error behavior.                    |
+| API        | `npm run cy:run:api`        | Focused validation of API contracts/integration behavior.           |
 
 ## CI/CD Architecture
 
@@ -71,22 +71,22 @@ To run the tests locally, install dependencies with `npm install`, execute all t
 
 ### GitHub vs Jenkins responsibilities
 
-| | GitHub | Jenkins |
-| --- | --- | --- |
-| Source control | ✅ | — |
-| Pull Requests | ✅ | — |
-| Branch protection | ✅ | — |
-| Required quality gate (status check) | ✅ (enforces it) | ✅ (provides the check result) |
-| CI execution (lint, format, tests) | — | ✅ |
-| Simulated deployment / release evidence | — | ✅ |
+|                                         | GitHub           | Jenkins                        |
+| --------------------------------------- | ---------------- | ------------------------------ |
+| Source control                          | ✅               | —                              |
+| Pull Requests                           | ✅               | —                              |
+| Branch protection                       | ✅               | —                              |
+| Required quality gate (status check)    | ✅ (enforces it) | ✅ (provides the check result) |
+| CI execution (lint, format, tests)      | —                | ✅                             |
+| Simulated deployment / release evidence | —                | ✅                             |
 
 ### Pipeline routing
 
-| Trigger | Steps | Deployment |
-| --- | --- | --- |
-| **Feature branch push** | `npm ci` → Lint → Format check → `@smoke` | none |
-| **Pull Request → `main`** | `npm ci` → Lint → Format check → `@regression` → Jenkins required check | none |
-| **`main` after merge** | `npm ci` → Lint → Format check → `@sanity` → Simulated Deployment → Post-Simulated-Deployment `@smoke` → Release Evidence | simulated only |
+| Trigger                   | Steps                                                                                                                     | Deployment     |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------- | -------------- |
+| **Feature branch push**   | `npm ci` → Lint → Format check → `@smoke`                                                                                 | none           |
+| **Pull Request → `main`** | `npm ci` → Lint → Format check → `@regression` → Jenkins required check                                                   | none           |
+| **`main` after merge**    | `npm ci` → Lint → Format check → `@sanity` → Simulated Deployment → Post-Simulated-Deployment `@smoke` → Release Evidence | simulated only |
 
 ```mermaid
 flowchart TD
