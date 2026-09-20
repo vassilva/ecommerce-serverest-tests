@@ -23,13 +23,17 @@ When("submits the registration form", () => {
   SignupPage.submit();
 });
 
+Given("a regular user has already been registered via the API", () => {
+  cy.apiCreateUser({}, { validateResponse: false }).then(({ user }) => {
+    cy.wrap(user.email).as("existingUserEmail");
+  });
+});
+
 When("fills in the registration data with an existing email", () => {
-  cy.fixture("users").then((usersData) => {
-    SignupPage.fillForm(
-      usersData.validUser.nome,
-      usersData.existingEmail,
-      usersData.validUser.password
-    );
+  cy.get("@existingUserEmail").then((existingEmail) => {
+    cy.fixture("users").then((usersData) => {
+      SignupPage.fillForm(usersData.validUser.nome, existingEmail, usersData.validUser.password);
+    });
   });
 });
 
