@@ -15,6 +15,7 @@
     "cy:run:regression": "cypress run --env TAGS=@regression",
     "cy:run:negative": "cypress run --env TAGS=@negative",
     "cy:run:api": "cypress run --env TAGS=@api",
+    "cy:run:sanity": "cypress run --env TAGS=@sanity",
     "lint": "eslint cypress/**/*.js",
     "lint:fix": "eslint cypress/**/*.js --fix",
     "format:check": "prettier --check . --ignore-unknown",
