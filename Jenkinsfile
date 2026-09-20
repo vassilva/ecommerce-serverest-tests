@@ -81,7 +81,7 @@ pipeline {
           rm -rf .simulated-release
           mkdir -p "$STAGE"
 
-          allowlist="cypress/e2e cypress/support cypress.config.js .cypress-cucumber-preprocessorrc.json package.json package-lock.json README.md .github/workflows/ci.yml Jenkinsfile"
+          allowlist="cypress/e2e cypress/support cypress.config.js .cypress-cucumber-preprocessorrc.json package.json package-lock.json README.md Jenkinsfile"
 
           missing=0
           for p in $allowlist; do
@@ -136,7 +136,6 @@ pipeline {
                 'package.json',
                 'package-lock.json',
                 'README.md',
-                '.github/workflows/ci.yml',
                 'Jenkinsfile'
               ],
               targetDescription: 'Public reference ServeRest application, used only for post-simulated-deployment smoke validation. This is not a deployment target and no application was deployed to it.',
