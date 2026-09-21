@@ -257,6 +257,11 @@ pipeline {
             set +e
             npm run cy:run:smoke
             rc=$?
+            # TEMPORARY NEGATIVE-TEST HOOK - REMOVE AFTER VALIDATION
+            if [ "$rc" -eq 0 ]; then
+              echo "NEGATIVE TEST HOOK: real smoke passed; forcing exit code 97 to exercise the failure path"
+              rc=97
+            fi
             mkdir -p .simulated-release
             printf '%s' "$rc" > .simulated-release/post-deploy-smoke.exitcode
             exit "$rc"
