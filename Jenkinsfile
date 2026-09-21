@@ -58,7 +58,17 @@ pipeline {
         }
       }
       steps {
-        sh 'npm run cy:run:sanity'
+        sh '''
+          set +e
+          npm run cy:run:sanity
+          rc=$?
+          # TEMPORARY NEGATIVE-TEST HOOK - REMOVE AFTER VALIDATION
+          if [ "$rc" -eq 0 ]; then
+            echo "NEGATIVE TEST HOOK: real sanity passed; forcing exit code 96 to exercise the sanity gate failure path"
+            rc=96
+          fi
+          exit "$rc"
+        '''
       }
     }
 
