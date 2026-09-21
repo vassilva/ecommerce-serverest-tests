@@ -252,7 +252,11 @@ pipeline {
         // A Smoke failure must fail this stage and the build (fail closed), but must
         // not abort the pipeline before Release Evidence records the outcome.
         // The exact exit status is persisted and then re-raised unchanged.
-        catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {
+        catchError(
+          buildResult: 'FAILURE',
+          stageResult: 'FAILURE',
+          catchInterruptions: false
+        ) {
           sh '''
             set +e
             npm run cy:run:smoke
