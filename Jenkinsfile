@@ -249,7 +249,19 @@ pipeline {
       }
       steps {
         echo 'Post-simulated-deployment smoke validation against the reference target application.'
-        sh 'npm run cy:run:smoke'
+        // A Smoke failure must fail this stage and the build (fail closed), but must
+        // not abort the pipeline before Release Evidence records the outcome.
+        // The exact exit status is persisted and then re-raised unchanged.
+        catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {
+          sh '''
+            set +e
+            npm run cy:run:smoke
+            rc=$?
+            mkdir -p .simulated-release
+            printf '%s' "$rc" > .simulated-release/post-deploy-smoke.exitcode
+            exit "$rc"
+          '''
+        }
       }
     }
 
@@ -264,11 +276,52 @@ pipeline {
         sh '''
           node -e "
             const fs = require('fs');
+
+            // All state is derived from files written by THIS build (.simulated-release
+            // is recreated by Prepare Simulated Release). Missing or invalid data fails closed.
+            let deploymentExecuted = false;
+            try {
+              const d = JSON.parse(fs.readFileSync('.simulated-release/simulated-deployment-evidence.json', 'utf8'));
+              deploymentExecuted =
+                d.simulatedDeployment === true &&
+                d.realDeploymentPerformed === false &&
+                typeof d.deploymentTimestampUtc === 'string' && d.deploymentTimestampUtc !== '' &&
+                typeof d.sourceCommit === 'string' && d.sourceCommit !== '' &&
+                d.sourceCommit === process.env.GIT_COMMIT;
+            } catch (e) {
+              deploymentExecuted = false;
+            }
+
+            // Exit code file: exactly 0 -> passed; other non-negative integer -> failed;
+            // missing / invalid / ambiguous -> not-run.
+            let smokeStatus = 'not-run';
+            let smokeExitCode = null;
+            try {
+              const raw = fs.readFileSync('.simulated-release/post-deploy-smoke.exitcode', 'utf8').trim();
+              const n = Number(raw);
+              if (raw !== '' && Number.isInteger(n) && n >= 0 && String(n) === raw) {
+                smokeExitCode = n;
+                smokeStatus = n === 0 ? 'passed' : 'failed';
+              }
+            } catch (e) {
+              smokeStatus = 'not-run';
+            }
+
+            const releaseValidated = deploymentExecuted === true && smokeStatus === 'passed';
+
             const evidence = {
               sourceCommit: process.env.GIT_COMMIT,
               jenkinsBuildNumber: process.env.BUILD_NUMBER,
               simulatedRelease: true,
-              simulatedDeploymentCompleted: true,
+              realDeploymentPerformed: false,
+              deploymentExecuted: deploymentExecuted,
+              postDeploymentSmoke: {
+                status: smokeStatus,
+                exitCode: smokeExitCode,
+                scope: 'Post-simulated-deployment smoke validation against the reference target application. Does not validate a newly deployed application instance.'
+              },
+              releaseValidated: releaseValidated,
+              releaseValidatedMeaning: 'true only when the simulated deployment marker was recorded by this build and the post-simulated-deployment smoke passed against the reference target. It does not imply a real deployment or production readiness.',
               postSimulatedDeploymentSmokeIntent: 'Post-simulated-deployment smoke validation against the reference target application. Does not validate a newly deployed application instance.',
               finalEvidenceScope: 'Simulated release, simulated deployment marker, and post-simulated-deployment smoke result for this main build. No real deployment infrastructure was contacted.',
               noRealDeploymentStatement: 'No real deployment target was contacted at any stage of this pipeline.'
