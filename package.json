@@ -38,7 +38,7 @@
     "@badeball/cypress-cucumber-preprocessor": "^24.0.0",
     "@bahmutov/cypress-esbuild-preprocessor": "^2.2.8",
     "cypress": "^15.8.2",
-    "esbuild": "^0.27.2",
+    "esbuild": "^0.28.2",
     "eslint": "^9.39.2",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-cypress": "^5.2.1",
