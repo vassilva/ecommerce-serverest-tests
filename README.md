@@ -161,11 +161,11 @@ Security hardening for this laboratory was implemented and validated incremental
 
 **Dependency security**
 
-| | npm audit | GitHub Dependabot |
-| --- | --- | --- |
-| Before remediation | 32 (17 high / 13 moderate / 2 low / 0 critical) | 47 open (24 high / 19 medium / 4 low / 0 critical) |
-| After Wave 1 — `package-lock.json` refresh within existing `package.json` ranges (`npm update`, no manual version selection) | 4 (1 high / 1 moderate / 2 low / 0 critical) | 3 open (1 high / 1 medium / 1 low / 0 critical) |
-| After Wave 2 — `esbuild` bumped `^0.27.2` → `^0.28.2`, the one remaining **direct** dependency finding | 3 (1 high / 1 moderate / 1 low / 0 critical) | 2 open (both `serialize-javascript`) |
+|                                                                                                                              | npm audit                                       | GitHub Dependabot                                  |
+| ---------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- | -------------------------------------------------- |
+| Before remediation                                                                                                           | 32 (17 high / 13 moderate / 2 low / 0 critical) | 47 open (24 high / 19 medium / 4 low / 0 critical) |
+| After Wave 1 — `package-lock.json` refresh within existing `package.json` ranges (`npm update`, no manual version selection) | 4 (1 high / 1 moderate / 2 low / 0 critical)    | 3 open (1 high / 1 medium / 1 low / 0 critical)    |
+| After Wave 2 — `esbuild` bumped `^0.27.2` → `^0.28.2`, the one remaining **direct** dependency finding                       | 3 (1 high / 1 moderate / 1 low / 0 critical)    | 2 open (both `serialize-javascript`)               |
 
 Both waves changed `package-lock.json` only (Wave 2 also changed the single `esbuild` line in `package.json`); no dependency range was widened beyond a patch/minor bump, and no major-version migration was performed. Each wave went through its own branch, PR, natural Jenkins PR-gate validation, and merge — `npm ci` was used at each step to confirm the resulting lockfile was reproducible from a clean install.
 
@@ -175,11 +175,11 @@ npm audit and Dependabot do not report identical counts for the same underlying 
 
 Three findings remain and are **not resolved**, because every available fix falls outside a patch/minor, lockfile-only, or override-free change:
 
-| Package | Severity | Path | Why it's blocked |
-| --- | --- | --- | --- |
-| `serialize-javascript` | high | `@badeball/cypress-cucumber-preprocessor` → `mocha` → `serialize-javascript` | `mocha`'s declared range (`^6.0.2`) excludes every patched release (`>=7.0.5`). |
-| `mocha` | moderate | `@badeball/cypress-cucumber-preprocessor` → `mocha` | Flagged only because it pulls in the `diff`/`serialize-javascript` findings below; not independently vulnerable. |
-| `diff` | low | `@badeball/cypress-cucumber-preprocessor` → `mocha` → `diff` | `mocha`'s declared range (`^7.0.0`) excludes every patched release (`>=8.0.3`). |
+| Package                | Severity | Path                                                                         | Why it's blocked                                                                                                 |
+| ---------------------- | -------- | ---------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `serialize-javascript` | high     | `@badeball/cypress-cucumber-preprocessor` → `mocha` → `serialize-javascript` | `mocha`'s declared range (`^6.0.2`) excludes every patched release (`>=7.0.5`).                                  |
+| `mocha`                | moderate | `@badeball/cypress-cucumber-preprocessor` → `mocha`                          | Flagged only because it pulls in the `diff`/`serialize-javascript` findings below; not independently vulnerable. |
+| `diff`                 | low      | `@badeball/cypress-cucumber-preprocessor` → `mocha` → `diff`                 | `mocha`'s declared range (`^7.0.0`) excludes every patched release (`>=8.0.3`).                                  |
 
 The root cause is upstream: `@badeball/cypress-cucumber-preprocessor` — even at its latest published release — still declares `mocha: ^11.0.0`, and `mocha@11.x` has not adopted the patched `diff`/`serialize-javascript` majors. Resolving this would require either the upstream preprocessor to bump its own `mocha` dependency, or an unsafe forced override that pins a version outside what the dependency tree's own maintainers have validated together — the latter was deliberately not applied. This is documented here as an **accepted, deferred residual risk**, to be revisited when the upstream package updates.
 
@@ -187,14 +187,14 @@ The root cause is upstream: `@badeball/cypress-cucumber-preprocessor` — even a
 
 The items below are deliberate trade-offs made because this is a local, single-user laboratory, not shared or externally exposed infrastructure. Each is documented honestly rather than silently carried or hidden; a shared or production-facing setup should not adopt them as-is.
 
-| Risk | Why accepted here | What a shared/production setup should do instead |
-| --- | --- | --- |
-| Jenkins controller runs as `root` inside its container, with the Docker socket mounted (`/var/run/docker.sock`) | Needed so the `Jenkinsfile`'s `agent { docker { ... } }` can launch the Cypress container from the controller; only one operator uses this instance | Run builds on a separate, non-root agent that does not share the controller's filesystem or Docker socket; use a socket proxy with a restricted API surface if Docker access is unavoidable |
-| `npm ci`/`npm install` run inside that same privileged Jenkins Docker context | Accepted alongside the risk above — any `install`-time script already runs with controller-adjacent privilege | Run dependency installation in an isolated, non-privileged agent; consider `--ignore-scripts` where the toolchain allows it |
-| Jenkins authorization was observed as `FullControlOnceLoggedInAuthorizationStrategy` (any authenticated user is a full admin) | Acceptable only because there is exactly one local account and no external access | Use a role-based or matrix authorization strategy sized to the number of distinct users/teams before adding a second account or exposing the instance |
-| Jenkins base image and some `apt` dependencies are not fully pinned by digest | Reproducibility is "good enough" for a lab rebuilt occasionally by one person; a floating tag has not caused an observed break | Pin the base image by digest and pin `apt` package versions for a setup where reproducible builds matter operationally |
-| Jenkins serves plain HTTP | Only ever reachable on `127.0.0.1` after the hardening above — never sent over a real network | Terminate TLS in front of Jenkins as soon as it is reachable from anywhere other than `localhost` |
-| Deployment is entirely simulated; there is no owned DEV/UAT/PREPROD/PROD environment | This project's stated purpose is to demonstrate CI/CD *design and gating*, not to operate a real deployment target | A real pipeline needs an actual owned environment, real deployment tooling, and post-deployment validation against the instance that was just deployed, not a pre-existing reference target |
+| Risk                                                                                                                          | Why accepted here                                                                                                                                   | What a shared/production setup should do instead                                                                                                                                            |
+| ----------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Jenkins controller runs as `root` inside its container, with the Docker socket mounted (`/var/run/docker.sock`)               | Needed so the `Jenkinsfile`'s `agent { docker { ... } }` can launch the Cypress container from the controller; only one operator uses this instance | Run builds on a separate, non-root agent that does not share the controller's filesystem or Docker socket; use a socket proxy with a restricted API surface if Docker access is unavoidable |
+| `npm ci`/`npm install` run inside that same privileged Jenkins Docker context                                                 | Accepted alongside the risk above — any `install`-time script already runs with controller-adjacent privilege                                       | Run dependency installation in an isolated, non-privileged agent; consider `--ignore-scripts` where the toolchain allows it                                                                 |
+| Jenkins authorization was observed as `FullControlOnceLoggedInAuthorizationStrategy` (any authenticated user is a full admin) | Acceptable only because there is exactly one local account and no external access                                                                   | Use a role-based or matrix authorization strategy sized to the number of distinct users/teams before adding a second account or exposing the instance                                       |
+| Jenkins base image and some `apt` dependencies are not fully pinned by digest                                                 | Reproducibility is "good enough" for a lab rebuilt occasionally by one person; a floating tag has not caused an observed break                      | Pin the base image by digest and pin `apt` package versions for a setup where reproducible builds matter operationally                                                                      |
+| Jenkins serves plain HTTP                                                                                                     | Only ever reachable on `127.0.0.1` after the hardening above — never sent over a real network                                                       | Terminate TLS in front of Jenkins as soon as it is reachable from anywhere other than `localhost`                                                                                           |
+| Deployment is entirely simulated; there is no owned DEV/UAT/PREPROD/PROD environment                                          | This project's stated purpose is to demonstrate CI/CD _design and gating_, not to operate a real deployment target                                  | A real pipeline needs an actual owned environment, real deployment tooling, and post-deployment validation against the instance that was just deployed, not a pre-existing reference target |
 
 ## Credential and Test Data Handling
 
