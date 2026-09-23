@@ -7,14 +7,17 @@ pipeline {
   }
 
   options {
-    // Limits the total execution time to 15 minutes
-    timeout(time: 15, unit: 'MINUTES')
-    // Keeps only the last 5 builds to save disk space
+    // No pipeline-global timeout: the Deployment Authorization stage waits
+    // for a human on its own independent, much longer timeout (see that
+    // stage). Every automated stage instead carries its own bound below,
+    // reusing the previous 15-minute ceiling so no automated stage is left
+    // unbounded and none is tightened relative to the prior behavior.
     buildDiscarder(logRotator(numToKeepStr: '5'))
   }
 
   stages {
     stage('Install dependencies') {
+      options { timeout(time: 15, unit: 'MINUTES') }
       steps {
         // Fetches the source code from the repository
         checkout scm
@@ -24,12 +27,14 @@ pipeline {
     }
 
     stage('Lint') {
+      options { timeout(time: 15, unit: 'MINUTES') }
       steps {
         sh 'npm run lint'
       }
     }
 
     stage('Format check') {
+      options { timeout(time: 15, unit: 'MINUTES') }
       steps {
         sh 'npm run format:check'
       }
@@ -37,6 +42,7 @@ pipeline {
 
     // Feature/other plain branches: Fast CI.
     stage('Feature Smoke Tests') {
+      options { timeout(time: 15, unit: 'MINUTES') }
       when {
         allOf {
           expression { env.CHANGE_ID == null }
@@ -49,8 +55,10 @@ pipeline {
     }
 
     // main: pre-deployment blocking quality gate. A failure here must stop the
-    // pipeline before any simulated release/deployment stage runs.
+    // pipeline before any authorization/deployment/release stage runs.
+    // Deliberately NOT wrapped in catchError: this gate stays fail-hard.
     stage('Main Sanity Tests') {
+      options { timeout(time: 15, unit: 'MINUTES') }
       when {
         allOf {
           expression { env.CHANGE_ID == null }
@@ -62,12 +70,105 @@ pipeline {
       }
     }
 
-    // ===== Simulated CD (main only) =====
-    // Everything below is explicitly a SIMULATION. No real deployment
-    // infrastructure exists for this repository and none is contacted
-    // by any of these stages.
+    // ===== Manual deployment authorization (main only) =====
+    // Models the generic organizational concept of separating "quality gate
+    // passed" from "a human authorized deployment to proceed" - it does not
+    // claim to reproduce any specific company's technical implementation.
+    //
+    // agent none: this stage must NOT hold/occupy the Cypress Docker
+    // container or a Jenkins executor while waiting for a human. It has no
+    // workspace and touches no files; the decision is threaded to later
+    // stages purely through environment variables, then persisted to a file
+    // by "Record Deployment Authorization" (which runs back on the Docker
+    // agent, since only a stage with a workspace can write to
+    // .simulated-release/).
+    //
+    // The three possible outcomes (approved / rejected / timed-out) are
+    // deliberately distinguished - a rejection or a timeout is never treated
+    // as a test failure. See README "Manual deployment authorization" for
+    // the full rationale, including the known limitation in distinguishing
+    // an explicit UI rejection from an unrelated administrative build abort.
+    stage('Deployment Authorization') {
+      agent none
+      when {
+        allOf {
+          expression { env.CHANGE_ID == null }
+          branch 'main'
+        }
+      }
+      steps {
+        script {
+          def outcome = 'timed-out'
+          def approver = null
+          try {
+            // Independent, deliberately long lab timeout for the human
+            // wait - see README for rationale. This timeout is scoped to
+            // this stage only; it does not borrow from or extend any
+            // automated stage's own 15-minute budget, and no automated
+            // stage's budget is consumed by this wait either.
+            timeout(time: 24, unit: 'HOURS') {
+              def result = input(
+                message: 'Quality gates passed. Authorize simulated deployment progression? No real SIT/UAT environment will be contacted.',
+                ok: 'Authorize Simulated Deployment',
+                submitterParameter: 'APPROVER_ID'
+              )
+              // With only submitterParameter (no other `parameters`), the
+              // input step's own documented behavior returns a Map keyed by
+              // that parameter name. Handled defensively in case a given
+              // Jenkins/workflow-plugin version returns a plain value
+              // instead - approvedBy is left null rather than guessed if
+              // neither shape is found.
+              if (result instanceof Map) {
+                approver = result.get('APPROVER_ID')
+              } else if (result instanceof String) {
+                approver = result
+              }
+            }
+            outcome = 'approved'
+          } catch (Throwable t) {
+            // Best-effort distinction: a timeout-caused interruption is
+            // identified by inspecting the interruption's own causes for a
+            // type whose simple name mentions "Timeout" - matched by simple
+            // name (not a hardcoded fully-qualified class) since the exact
+            // package has moved across workflow-plugin versions. Anything
+            // not positively identified as a timeout is recorded as an
+            // explicit rejection. This is a disclosed, best-effort
+            // classification - see README for the known edge case (an
+            // unrelated administrative build abort would also land here)
+            // and the recommended follow-up controlled validation on main.
+            def isTimeout = false
+            try {
+              def causes = t.hasProperty('causes') ? t.causes : []
+              isTimeout = causes.any { it != null && it.getClass().getSimpleName().contains('Timeout') }
+            } catch (Throwable ignored) {
+              isTimeout = false
+            }
+            outcome = isTimeout ? 'timed-out' : 'rejected'
+          }
 
-    stage('Prepare Simulated Release') {
+          env.DEPLOYMENT_AUTH_STATUS = outcome
+          env.DEPLOYMENT_AUTH_APPROVER = approver ?: ''
+          env.DEPLOYMENT_AUTH_TIMESTAMP = new Date().format("yyyy-MM-dd'T'HH:mm:ss'Z'", TimeZone.getTimeZone('UTC'))
+
+          if (outcome == 'rejected') {
+            // Testing passed; deployment was intentionally not authorized.
+            // This is not a defect - the build result must not imply one.
+            currentBuild.result = 'SUCCESS'
+          } else if (outcome == 'timed-out') {
+            // Nobody made a decision within the approval window. Distinct
+            // from an explicit rejection: flagged UNSTABLE so it is visible
+            // without being reported as a test or pipeline failure.
+            currentBuild.result = 'UNSTABLE'
+          }
+        }
+      }
+    }
+
+    // Always runs on main (any of the three authorization outcomes) so the
+    // decision is durably recorded before any conditional CD stage is
+    // reached. Writes the one file all three outcome paths share.
+    stage('Record Deployment Authorization') {
+      options { timeout(time: 15, unit: 'MINUTES') }
       when {
         allOf {
           expression { env.CHANGE_ID == null }
@@ -77,8 +178,45 @@ pipeline {
       steps {
         sh '''
           set -e
+          mkdir -p .simulated-release
+          node -e "
+            const fs = require('fs');
+            const record = {
+              required: true,
+              status: process.env.DEPLOYMENT_AUTH_STATUS,
+              approvedBy: process.env.DEPLOYMENT_AUTH_APPROVER && process.env.DEPLOYMENT_AUTH_APPROVER !== '' ? process.env.DEPLOYMENT_AUTH_APPROVER : null,
+              timestampUtc: process.env.DEPLOYMENT_AUTH_TIMESTAMP,
+              sourceCommit: process.env.GIT_COMMIT,
+              jenkinsBuildNumber: process.env.BUILD_NUMBER,
+              meaning: 'A passing Main Sanity quality gate does not by itself authorize deployment. This file records the separate, explicit human decision that followed it.'
+            };
+            fs.writeFileSync('.simulated-release/deployment-authorization.json', JSON.stringify(record, null, 2));
+            console.log('deployment-authorization.json written. status=' + record.status);
+          "
+        '''
+      }
+    }
+
+    // ===== Simulated CD (main only, approved authorization only) =====
+    // Everything below is explicitly a SIMULATION. No real deployment
+    // infrastructure exists for this repository and none is contacted
+    // by any of these stages. Each stage below only proceeds when the
+    // Deployment Authorization outcome recorded above was "approved".
+
+    stage('Prepare Simulated Release') {
+      options { timeout(time: 15, unit: 'MINUTES') }
+      when {
+        allOf {
+          expression { env.CHANGE_ID == null }
+          branch 'main'
+          expression { env.DEPLOYMENT_AUTH_STATUS == 'approved' }
+        }
+      }
+      steps {
+        sh '''
+          set -e
           STAGE=".simulated-release/release"
-          rm -rf .simulated-release
+          rm -rf "$STAGE"
           mkdir -p "$STAGE"
 
           allowlist="cypress/e2e cypress/support cypress.config.js .cypress-cucumber-preprocessorrc.json package.json package-lock.json README.md Jenkinsfile"
@@ -105,10 +243,12 @@ pipeline {
     }
 
     stage('Generate Release Manifest') {
+      options { timeout(time: 15, unit: 'MINUTES') }
       when {
         allOf {
           expression { env.CHANGE_ID == null }
           branch 'main'
+          expression { env.DEPLOYMENT_AUTH_STATUS == 'approved' }
         }
       }
       steps {
@@ -138,10 +278,10 @@ pipeline {
                 'README.md',
                 'Jenkinsfile'
               ],
-              targetDescription: 'Public reference ServeRest application, used only for post-simulated-deployment smoke validation. This is not a deployment target and no application was deployed to it.',
-              environmentLimitation: 'This repository is a QA automation laboratory with no owned DEV, UAT, PREPROD, or PROD deployment environment.',
+              targetDescription: 'Public reference ServeRest application, used only for SIT Smoke validation. This is not a deployment target and no application was deployed to it.',
+              environmentLimitation: 'This repository is a QA automation laboratory with no owned DEV, SIT, UAT, PREPROD, or PROD deployment environment.',
               noRealDeploymentStatement: 'No real deployment target was contacted. This release is simulated for portfolio and demonstration purposes only.',
-              postDeployValidationScope: 'Post-simulated-deployment smoke validation against the reference target application. This does not validate a newly deployed application instance.'
+              postDeployValidationScope: 'SIT Smoke validation against the reference target application. This does not validate a newly deployed application instance.'
             };
 
             fs.writeFileSync('.simulated-release/release-manifest.json', JSON.stringify(manifest, null, 2));
@@ -152,10 +292,12 @@ pipeline {
     }
 
     stage('Validate Release Manifest') {
+      options { timeout(time: 15, unit: 'MINUTES') }
       when {
         allOf {
           expression { env.CHANGE_ID == null }
           branch 'main'
+          expression { env.DEPLOYMENT_AUTH_STATUS == 'approved' }
         }
       }
       steps {
@@ -202,11 +344,13 @@ pipeline {
       }
     }
 
-    stage('Simulated Deployment') {
+    stage('Simulated SIT Deployment') {
+      options { timeout(time: 15, unit: 'MINUTES') }
       when {
         allOf {
           expression { env.CHANGE_ID == null }
           branch 'main'
+          expression { env.DEPLOYMENT_AUTH_STATUS == 'approved' }
         }
       }
       steps {
@@ -221,34 +365,38 @@ pipeline {
             exit 1
           fi
 
-          echo "SIMULATED DEPLOYMENT: no real deployment target is contacted by this stage."
-          echo "This step only records that the simulated release passed validation and is ready for post-simulated-deployment smoke validation."
+          echo "SIMULATED SIT DEPLOYMENT: no real SIT environment is contacted by this stage."
+          echo "This step only records that the simulated release passed validation and is ready for SIT Smoke."
 
           node -e "
             const fs = require('fs');
             const evidence = {
               simulatedDeployment: true,
               realDeploymentPerformed: false,
+              environment: 'simulated-SIT',
               deploymentTimestampUtc: new Date().toISOString(),
               sourceCommit: process.env.GIT_COMMIT,
-              note: 'No real deployment infrastructure was contacted. This file only marks that the simulated release completed its (non-network) simulated deployment step.'
+              jenkinsBuildNumber: process.env.BUILD_NUMBER,
+              note: 'No real SIT infrastructure was contacted. This file only marks that the simulated release completed its (non-network) simulated SIT deployment step.'
             };
-            fs.writeFileSync('.simulated-release/simulated-deployment-evidence.json', JSON.stringify(evidence, null, 2));
-            console.log('simulated-deployment-evidence.json written.');
+            fs.writeFileSync('.simulated-release/simulated-sit-deployment-evidence.json', JSON.stringify(evidence, null, 2));
+            console.log('simulated-sit-deployment-evidence.json written.');
           "
         '''
       }
     }
 
-    stage('Post-Simulated-Deployment Smoke') {
+    stage('SIT Smoke') {
+      options { timeout(time: 15, unit: 'MINUTES') }
       when {
         allOf {
           expression { env.CHANGE_ID == null }
           branch 'main'
+          expression { env.DEPLOYMENT_AUTH_STATUS == 'approved' }
         }
       }
       steps {
-        echo 'Post-simulated-deployment smoke validation against the reference target application.'
+        echo 'SIT Smoke: validates the smoke suite at the simulated SIT gate against the reference ServeRest target. It does not validate a newly deployed SIT application instance.'
         // A Smoke failure must fail this stage and the build (fail closed), but must
         // not abort the pipeline before Release Evidence records the outcome.
         // The exact exit status is persisted and then re-raised unchanged.
@@ -262,14 +410,59 @@ pipeline {
             npm run cy:run:smoke
             rc=$?
             mkdir -p .simulated-release
-            printf '%s' "$rc" > .simulated-release/post-deploy-smoke.exitcode
+            printf '%s' "$rc" > .simulated-release/sit-smoke.exitcode
+            if [ "$rc" -eq 0 ]; then
+              : > .simulated-release/sit-smoke.ok
+            fi
             exit "$rc"
           '''
         }
       }
     }
 
+    // Evidence-only: no second Cypress execution. This suite already ran
+    // once, above, as SIT Smoke. There is only one reference target this
+    // pipeline can reach - a second identical run would validate nothing
+    // new. Promotion to the simulated UAT gate is granted on the
+    // already-proven SIT Smoke result. See README for the full rationale.
+    stage('Simulated UAT Promotion') {
+      options { timeout(time: 15, unit: 'MINUTES') }
+      when {
+        allOf {
+          expression { env.CHANGE_ID == null }
+          branch 'main'
+          expression { env.DEPLOYMENT_AUTH_STATUS == 'approved' }
+          expression { fileExists('.simulated-release/sit-smoke.ok') }
+        }
+      }
+      steps {
+        sh '''
+          set -e
+          echo "SIMULATED UAT PROMOTION: no real UAT environment is contacted by this stage."
+          echo "Evidence-only promotion, granted on the already-proven SIT Smoke result. No second Cypress execution."
+
+          node -e "
+            const fs = require('fs');
+            const evidence = {
+              simulatedPromotion: true,
+              realDeploymentPerformed: false,
+              promotionSource: 'simulated-SIT',
+              promotionTarget: 'simulated-UAT',
+              promotionTimestampUtc: new Date().toISOString(),
+              sourceCommit: process.env.GIT_COMMIT,
+              jenkinsBuildNumber: process.env.BUILD_NUMBER,
+              basis: 'Granted on the SIT Smoke result recorded earlier in this same build. No second Cypress execution was performed and no real UAT environment was contacted.',
+              note: 'This laboratory has no owned UAT environment. This file records a simulated promotion decision only.'
+            };
+            fs.writeFileSync('.simulated-release/uat-promotion-evidence.json', JSON.stringify(evidence, null, 2));
+            console.log('uat-promotion-evidence.json written.');
+          "
+        '''
+      }
+    }
+
     stage('Release Evidence') {
+      options { timeout(time: 15, unit: 'MINUTES') }
       when {
         allOf {
           expression { env.CHANGE_ID == null }
@@ -282,56 +475,125 @@ pipeline {
             const fs = require('fs');
 
             // All state is derived from files written by THIS build (.simulated-release
-            // is recreated by Prepare Simulated Release). Missing or invalid data fails closed.
-            let deploymentExecuted = false;
+            // is recreated by Prepare Simulated Release, which only runs when approved).
+            // Missing or invalid data fails closed / is recorded as not-run|blocked.
+
+            // qualityGate.sanityStatus is hardcoded 'passed': this stage only ever
+            // executes on main after Main Sanity Tests succeeded, since that stage
+            // remains fail-hard (uncaught failure halts the pipeline before this
+            // stage is ever reached). There is no other value this can hold here.
+            const qualityGate = { sanityStatus: 'passed' };
+
+            let deploymentAuthorization = {
+              required: true,
+              status: 'not-reached',
+              approvedBy: null,
+              timestampUtc: null,
+              meaning: 'A passing Main Sanity quality gate does not by itself authorize deployment. This field records the separate, explicit human decision that followed it.'
+            };
             try {
-              const d = JSON.parse(fs.readFileSync('.simulated-release/simulated-deployment-evidence.json', 'utf8'));
-              deploymentExecuted =
+              const a = JSON.parse(fs.readFileSync('.simulated-release/deployment-authorization.json', 'utf8'));
+              deploymentAuthorization = {
+                required: true,
+                status: a.status,
+                approvedBy: a.approvedBy === undefined ? null : a.approvedBy,
+                timestampUtc: a.timestampUtc,
+                meaning: a.meaning
+              };
+            } catch (e) {
+              // deployment-authorization.json missing entirely is only expected if
+              // Main Sanity failed - but then this stage would never run either.
+              // Left as 'not-reached' defensively rather than assumed.
+            }
+
+            let sitDeploymentExecuted = false;
+            try {
+              const d = JSON.parse(fs.readFileSync('.simulated-release/simulated-sit-deployment-evidence.json', 'utf8'));
+              sitDeploymentExecuted =
                 d.simulatedDeployment === true &&
                 d.realDeploymentPerformed === false &&
                 typeof d.deploymentTimestampUtc === 'string' && d.deploymentTimestampUtc !== '' &&
                 typeof d.sourceCommit === 'string' && d.sourceCommit !== '' &&
                 d.sourceCommit === process.env.GIT_COMMIT;
             } catch (e) {
-              deploymentExecuted = false;
+              sitDeploymentExecuted = false;
             }
 
             // Exit code file: exactly 0 -> passed; other non-negative integer -> failed;
             // missing / invalid / ambiguous -> not-run.
-            let smokeStatus = 'not-run';
-            let smokeExitCode = null;
+            let sitSmokeStatus = 'not-run';
+            let sitSmokeExitCode = null;
             try {
-              const raw = fs.readFileSync('.simulated-release/post-deploy-smoke.exitcode', 'utf8').trim();
+              const raw = fs.readFileSync('.simulated-release/sit-smoke.exitcode', 'utf8').trim();
               const n = Number(raw);
               if (raw !== '' && Number.isInteger(n) && n >= 0 && String(n) === raw) {
-                smokeExitCode = n;
-                smokeStatus = n === 0 ? 'passed' : 'failed';
+                sitSmokeExitCode = n;
+                sitSmokeStatus = n === 0 ? 'passed' : 'failed';
               }
             } catch (e) {
-              smokeStatus = 'not-run';
+              sitSmokeStatus = 'not-run';
             }
 
-            const releaseValidated = deploymentExecuted === true && smokeStatus === 'passed';
+            let uatPromotionExecuted = false;
+            try {
+              const u = JSON.parse(fs.readFileSync('.simulated-release/uat-promotion-evidence.json', 'utf8'));
+              uatPromotionExecuted =
+                u.simulatedPromotion === true &&
+                u.realDeploymentPerformed === false &&
+                u.promotionSource === 'simulated-SIT' &&
+                u.promotionTarget === 'simulated-UAT' &&
+                typeof u.sourceCommit === 'string' && u.sourceCommit !== '' &&
+                u.sourceCommit === process.env.GIT_COMMIT;
+            } catch (e) {
+              uatPromotionExecuted = false;
+            }
+            const uatPromotionStatus = uatPromotionExecuted ? 'executed' : (deploymentAuthorization.status === 'approved' ? 'blocked' : 'not-run');
+
+            const releaseValidated =
+              qualityGate.sanityStatus === 'passed' &&
+              deploymentAuthorization.status === 'approved' &&
+              sitDeploymentExecuted === true &&
+              sitSmokeStatus === 'passed' &&
+              uatPromotionExecuted === true;
+
+            const promotionChain = [
+              { gate: 'sanity', status: qualityGate.sanityStatus },
+              { gate: 'deploymentAuthorization', status: deploymentAuthorization.status },
+              { gate: 'sitDeployment', status: sitDeploymentExecuted ? 'executed' : 'not-run' },
+              { gate: 'sitSmoke', status: sitSmokeStatus },
+              { gate: 'uatPromotion', status: uatPromotionStatus }
+            ];
 
             const evidence = {
               sourceCommit: process.env.GIT_COMMIT,
+              sourceBranch: process.env.BRANCH_NAME,
               jenkinsBuildNumber: process.env.BUILD_NUMBER,
               simulatedRelease: true,
               realDeploymentPerformed: false,
-              deploymentExecuted: deploymentExecuted,
-              postDeploymentSmoke: {
-                status: smokeStatus,
-                exitCode: smokeExitCode,
-                scope: 'Post-simulated-deployment smoke validation against the reference target application. Does not validate a newly deployed application instance.'
+              qualityGate: qualityGate,
+              deploymentAuthorization: deploymentAuthorization,
+              sit: {
+                deploymentExecuted: sitDeploymentExecuted,
+                validationStatus: sitSmokeStatus,
+                validationExitCode: sitSmokeExitCode,
+                validationScope: 'Smoke suite (@smoke) validation at the simulated SIT gate against the reference ServeRest target. Does not validate a newly deployed SIT application instance.'
               },
+              uat: {
+                promotionExecuted: uatPromotionExecuted,
+                promotionStatus: uatPromotionStatus,
+                validationExitCode: null,
+                validationScope: 'Evidence-only simulated promotion, granted on the SIT Smoke result already recorded in this build. No second Cypress execution was performed and no real UAT environment was contacted.'
+              },
+              promotionChain: promotionChain,
               releaseValidated: releaseValidated,
-              releaseValidatedMeaning: 'true only when the simulated deployment marker was recorded by this build and the post-simulated-deployment smoke passed against the reference target. It does not imply a real deployment or production readiness.',
-              postSimulatedDeploymentSmokeIntent: 'Post-simulated-deployment smoke validation against the reference target application. Does not validate a newly deployed application instance.',
-              finalEvidenceScope: 'Simulated release, simulated deployment marker, and post-simulated-deployment smoke result for this main build. No real deployment infrastructure was contacted.',
-              noRealDeploymentStatement: 'No real deployment target was contacted at any stage of this pipeline.'
+              releaseValidatedMeaning: 'true only when Main Sanity passed, deployment was explicitly authorized, the simulated SIT deployment marker belongs to this build/commit, SIT Smoke passed, and simulated UAT promotion executed. It does not imply a real deployment, a real SIT/UAT environment, or production readiness.',
+              finalEvidenceScope: 'Simulated release, deployment authorization decision, simulated SIT/UAT promotion markers, and SIT Smoke result for this main build. No real deployment infrastructure was contacted.',
+              environmentLimitation: 'This repository is a QA automation laboratory with no owned DEV, SIT, UAT, PREPROD, or PROD deployment environment.',
+              noRealDeploymentStatement: 'No real SIT or UAT environment was contacted at any stage of this pipeline.',
+              timestampUtc: new Date().toISOString()
             };
             fs.writeFileSync('.simulated-release/release-evidence.json', JSON.stringify(evidence, null, 2));
-            console.log('release-evidence.json written.');
+            console.log('release-evidence.json written. releaseValidated=' + releaseValidated);
           "
         '''
         archiveArtifacts artifacts: '.simulated-release/**', allowEmptyArchive: true
@@ -339,6 +601,7 @@ pipeline {
     }
 
     stage('Regression Tests') {
+      options { timeout(time: 15, unit: 'MINUTES') }
       when {
         expression { env.CHANGE_ID != null }
       }
@@ -355,6 +618,9 @@ pipeline {
     }
     success {
       echo 'Pipeline executed successfully!'
+    }
+    unstable {
+      echo 'Pipeline finished UNSTABLE - check whether this is an unanswered deployment authorization window.'
     }
     failure {
       archiveArtifacts artifacts: 'cypress/screenshots/**, cypress/videos/**', allowEmptyArchive: true
