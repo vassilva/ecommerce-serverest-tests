@@ -159,13 +159,15 @@ When("the user decreases the product quantity", () => {
 });
 
 Then("the products search API request should succeed with status 200", () => {
-  cy.waitForRequest("validProductSearchRequest", { validateResponse: true }).then((interception) => {
-    expect(interception.response, "Products search response should exist").to.exist;
-    expect(interception.response.statusCode, "Products search status").to.eq(200);
-    expect(interception.response.headers["content-type"], "Response content type").to.include(
-      "application/json"
-    );
-  });
+  cy.waitForRequest("validProductSearchRequest", { validateResponse: true }).then(
+    (interception) => {
+      expect(interception.response, "Products search response should exist").to.exist;
+      expect(interception.response.statusCode, "Products search status").to.eq(200);
+      expect(interception.response.headers["content-type"], "Response content type").to.include(
+        "application/json"
+      );
+    }
+  );
 });
 
 Then("the products search API response should contain the searched product", () => {
