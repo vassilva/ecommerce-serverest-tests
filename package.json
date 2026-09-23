@@ -4,7 +4,7 @@
   "description": "Cypress automation project for ServeRest with Cucumber and CI/CD",
   "main": "index.js",
   "type": "commonjs",
-  "packageManager": "npm@10",
+  "packageManager": "npm@11.6.2",
   "engines": {
     "node": ">=20"
   },
