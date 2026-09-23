@@ -82,11 +82,11 @@ To run the tests locally, install dependencies with `npm install`, execute all t
 
 ### Pipeline routing
 
-| Trigger                   | Steps                                                                                                                     | Deployment     |
-| ------------------------- | ------------------------------------------------------------------------------------------------------------------------- | -------------- |
-| **Feature branch push**   | `npm ci` → Lint → Format check → `@smoke`                                                                                 | none           |
-| **Pull Request → `main`** | `npm ci` → Lint → Format check → `@regression` → Jenkins required check                                                   | none           |
-| **`main` after merge**    | `npm ci` → Lint → Format check → `@sanity` → Simulated Deployment → Post-Simulated-Deployment `@smoke` → Release Evidence | simulated only |
+| Trigger                   | Steps                                                                                                                                                                                    | Deployment                                                       |
+| ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| **Feature branch push**   | `npm ci` → Lint → Format check → `@smoke`                                                                                                                                                | none                                                             |
+| **Pull Request → `main`** | `npm ci` → Lint → Format check → `@regression` → Jenkins required check                                                                                                                  | none                                                             |
+| **`main` after merge**    | `npm ci` → Lint → Format check → `@sanity` → **Deployment Authorization (human)** → Simulated SIT Deployment → SIT `@smoke` → Simulated UAT Promotion (evidence-only) → Release Evidence | simulated only, and only if authorization is explicitly approved |
 
 ```mermaid
 flowchart TD
@@ -108,13 +108,16 @@ flowchart TD
         C1["Merge commit on main"] --> C2["npm ci"]
         C2 --> C3["Lint + Format Check"]
         C3 --> C4["Sanity suite"]
-        C4 --> C5["Simulated Deployment (no real environment contacted)"]
-        C5 --> C6["Post-Simulated-Deployment Smoke (against pre-existing ServeRest reference target)"]
-        C6 --> C7["Release Evidence"]
+        C4 --> C5["Deployment Authorization (human decision)"]
+        C5 -->|approved| C6["Simulated SIT Deployment (no real environment contacted)"]
+        C6 --> C7["SIT Smoke (against pre-existing ServeRest reference target)"]
+        C7 -->|passed| C8["Simulated UAT Promotion (evidence-only, no second test run)"]
+        C5 -->|rejected / timed-out| C9["Release Evidence"]
+        C8 --> C9
     end
 ```
 
-The ServeRest reference target (`front.serverest.dev` / `serverest.dev`) is a pre-existing public application independent of this pipeline — the Simulated Deployment stage does not create, provision, or modify it in any way.
+The ServeRest reference target (`front.serverest.dev` / `serverest.dev`) is a pre-existing public application independent of this pipeline — no stage in this pipeline creates, provisions, or modifies it in any way.
 
 ### Trigger model
 
@@ -126,20 +129,44 @@ This Jenkins instance runs locally and is **not** exposed publicly to GitHub —
 - **Format check failure** → the pipeline fails immediately.
 - **Feature Smoke failure** → the feature-branch build fails.
 - **PR Regression failure** → the Jenkins required status check fails, which blocks normal merge into `main` under branch protection.
-- **Main Sanity failure** → the pipeline stops before Simulated Deployment; none of the simulated-release stages execute.
-- **Post-Simulated-Deployment Smoke failure** → the pipeline is explicitly designed to fail closed while still producing evidence. The Smoke stage runs inside `catchError(buildResult: 'FAILURE', stageResult: 'FAILURE', catchInterruptions: false)`: a real Cypress failure marks the stage and the overall build `FAILURE`, but does **not** abort the pipeline, so the subsequent **Release Evidence** stage still executes and archives evidence of the failure (`deploymentExecuted: true`, `postDeploymentSmoke.status: "failed"`, `releaseValidated: false`). `catchInterruptions: false` ensures this only applies to an ordinary test failure — a Jenkins timeout or manual abort is re-thrown normally and does not get silently absorbed. This behavior was validated with a controlled negative test (a temporary hook that forced a non-zero Smoke exit after a real pass) on a dedicated branch, observed on a real `main` build, then reverted.
+- **Main Sanity failure** → the pipeline stops before Deployment Authorization; no authorization decision is recorded, and none of the simulated-release stages execute. This gate remains deliberately **fail-hard** (no `catchError`) — unchanged by the authorization work below.
+- **Deployment Authorization: rejected** → a human explicitly declined to authorize deployment after Sanity passed. This is **not** a test failure: the pipeline records `deploymentAuthorization.status: "rejected"` and finishes with build result `SUCCESS`. None of the simulated SIT/UAT stages execute; **Release Evidence still runs** and records the outcome.
+- **Deployment Authorization: timed-out** → nobody responded within the approval window. Distinct from an explicit rejection: recorded as `deploymentAuthorization.status: "timed-out"` and the build finishes `UNSTABLE` (visible without being reported as broken). None of the simulated SIT/UAT stages execute; Release Evidence still runs.
+- **Deployment Authorization: approved** → the simulated SIT/UAT progression begins (see below).
+- **Simulated SIT Deployment failure** → this stage remains fail-hard, matching Main Sanity's philosophy: a broken packaging/manifest step is a pipeline defect, not a test result, so it is not wrapped in `catchError`. The pipeline stops before SIT Smoke; no Release Evidence is produced for this specific failure, consistent with how a Main Sanity failure behaves today.
+- **SIT Smoke failure** → the pipeline is explicitly designed to fail closed while still producing evidence. The stage runs inside `catchError(buildResult: 'FAILURE', stageResult: 'FAILURE', catchInterruptions: false)`: a real Cypress failure marks the stage and the overall build `FAILURE`, but does **not** abort the pipeline, so **Release Evidence still executes** and records `sit.deploymentExecuted: true`, `sit.validationStatus: "failed"`, `uat.promotionStatus: "blocked"`, `releaseValidated: false`. The simulated SIT deployment is **never** reported as not having happened — only that its validation failed and blocked promotion. `catchInterruptions: false` ensures this only applies to an ordinary test failure — a Jenkins timeout or manual abort is re-thrown normally and does not get silently absorbed. This behavior was validated with a controlled negative test (a temporary hook that forced a non-zero Smoke exit after a real pass) on a dedicated branch, observed on a real `main` build, then reverted.
+- **Simulated UAT Promotion** → evidence-only; it only runs once SIT Smoke has actually passed, and does not itself execute Cypress, so there is no separate "test failure" mode for it beyond the marker-writing step itself, which mirrors Simulated SIT Deployment's fail-hard behavior.
 
-## Simulated Deployment — Important Limitation
+## Manual deployment authorization
 
-**This repository is a QA automation / CI-CD laboratory. There is no owned DEV, UAT, PREPROD, or PROD deployment environment.**
+**This models a generic organizational concept — a human authorizing deployment after quality gates pass — not the specific technical implementation of any real company.** After `Main Sanity Tests` passes on `main`, the pipeline pauses at a `Deployment Authorization` stage and waits for an explicit decision in the Jenkins UI: a **`DECISION` choice parameter with exactly two values, `APPROVE` or `REJECT`**. The prompt is deliberately worded so it cannot be read as claiming a real SIT/UAT environment is about to be contacted.
 
-The "Simulated Deployment" stage in Jenkins does not deploy any real application. It exists to demonstrate deployment/release orchestration — packaging a release, generating and validating a release manifest, and recording deployment evidence — **without publishing an application to any real environment**. No real deployment target is ever contacted by this stage.
+A few points worth being explicit about:
 
-Post-Simulated-Deployment Smoke validates critical user journeys against the ServeRest reference target **after** the simulated deployment stage. Because this laboratory has no owned DEV/UAT/PREPROD/PROD environment, this stage demonstrates the post-deployment validation architecture rather than validating a newly deployed application instance. The ServeRest reference target it runs against already exists independently of this pipeline.
+- **A passing quality gate does not, by itself, authorize deployment.** `qualityGatePassed`, `deploymentAuthorized`, `deploymentExecuted` and `releaseValidated` are four separate, independently recorded facts (see Release evidence below) — a build can have the first true and the rest false.
+- **The business decision is an explicit `DECISION` parameter value, not the Jenkins input step's own Abort action.** Clicking Jenkins' generic "Abort" link on the input prompt is **not** how a deployment is rejected in this pipeline — rejection is chosen the same way approval is, by selecting `REJECT` and submitting normally. This means `REJECT` returns from the `input` step exactly like `APPROVE` does — no exception is thrown or caught to represent a business decision.
+- **An external interruption (a real Jenkins build Abort, an administrative cancellation, or anything else) is never converted into a rejection, a timeout, or any other business outcome.** The pipeline only catches the one interruption it explicitly expects — its own `timeout(24 HOURS){}` elapsing, positively identified by inspecting the interruption's structured cause for Jenkins' own `TimeoutStepExecution.ExceededTimeout` (the same class Jenkins itself uses internally for this, not a message-parsing heuristic). Anything else is rethrown untouched, so Jenkins' normal interruption/`ABORTED` handling applies exactly as it would to any other stage.
+- **Rejection is not a test failure**, and **timeout is not the same thing as rejection** — see the failure-behavior bullets above for exactly how each is distinguished and reported.
+- **The approval wait does not share the automated stages' timeout budget.** Every automated stage (Install/Lint/Format/Sanity, and every simulated SIT/UAT/evidence stage) carries its own independent 15-minute bound, same as before. The `Deployment Authorization` stage has its own, separately-scoped, much longer timeout (24 hours) — long enough for the lab's single operator to come back to Jenkins later, short enough that a build cannot remain parked forever. Nobody responding within that window is recorded as `"timed-out"`, distinct from an explicit rejection.
+- **The stage does not hold the Cypress Docker agent while waiting.** It runs with `agent none`; the decision is threaded to the following stages through pipeline environment variables and then persisted to `.simulated-release/deployment-authorization.json` by the next stage, which runs back on the same already-provisioned Docker workspace used by every other automated stage — nothing about their environment/dependency/checkout handling changes.
+- **Submitter identity, when captured, comes from Jenkins' own authenticated UI session** (`submitterParameter`) — not from any credential, token, or secret — and is recorded for both `APPROVE` and `REJECT`, since both are the same kind of explicit submission. If that mechanism doesn't return a usable value, `submittedBy` is recorded as `null` rather than guessed.
+- **A pending main-branch Jenkins status while a build waits for authorization is intentional**, not a stuck pipeline. It is a separate, non-required status context from the PR quality gate (`continuous-integration/jenkins/pr-head`), which is unaffected either way — merging a PR never waits on this.
+
+## Simulated SIT/UAT Deployment — Important Limitation
+
+**This repository is a QA automation / CI-CD laboratory. There is no owned DEV, SIT, UAT, PREPROD, or PROD deployment environment.**
+
+The `Simulated SIT Deployment` and `Simulated UAT Promotion` stages in Jenkins do not deploy any real application to any real environment. They exist to demonstrate deployment/promotion orchestration — packaging a release, generating and validating a release manifest, and recording deployment/promotion evidence — **without publishing an application to any real SIT or UAT environment**. No real deployment target is ever contacted by either stage. Never read "simulated SIT deployment" or "simulated UAT promotion" as claiming otherwise.
+
+`SIT Smoke` validates critical user journeys against the ServeRest reference target **after** the simulated SIT deployment stage. Because this laboratory has no owned SIT/UAT environment, this stage demonstrates the post-deployment validation architecture rather than validating a newly deployed application instance. The ServeRest reference target it runs against already exists independently of this pipeline.
+
+**There is deliberately no second `@smoke` run after UAT promotion.** `Simulated UAT Promotion` is evidence-only: it does not execute Cypress a second time. This pipeline has exactly one reachable target (the same public reference application) at every stage — running the identical suite against the identical target twice would add no additional technical signal and risks implying SIT and UAT are distinct, separately-validated environments, which they are not. Promotion to the simulated UAT gate is granted on the already-proven SIT Smoke result from earlier in the same build, and that basis is recorded explicitly in the UAT promotion evidence.
+
+`releaseValidated: true` means every gate in the promotion chain — Sanity, explicit authorization, simulated SIT deployment, SIT Smoke, simulated UAT promotion — succeeded for this specific build. It does **not** mean production-ready, does **not** mean a real SIT environment was validated, and does **not** mean a real UAT environment was validated.
 
 ### Release evidence
 
-On a successful `main` build, Jenkins packages a release using an explicit allowlist of paths (Cypress suite, support code, configuration, `package.json`/`package-lock.json`, this README, and the `Jenkinsfile` itself — see the `Prepare Simulated Release` stage in `Jenkinsfile` for the exact, current list), then generates and validates a `release-manifest.json`. The manifest and subsequent release-evidence file explicitly record: that the deployment was simulated, that no real deployment was performed, the source branch and commit, Jenkins build information, the release contents, a description of the (unmodified) target, the environment limitation stated above, and the scope of the post-deployment validation. These files are archived as Jenkins build artifacts.
+On every `main` build that reaches `Main Sanity Tests` successfully, Jenkins records the deployment authorization decision (`deployment-authorization.json`) regardless of outcome, then — only if approved — packages a release using an explicit allowlist of paths (Cypress suite, support code, configuration, `package.json`/`package-lock.json`, this README, and the `Jenkinsfile` itself — see the `Prepare Simulated Release` stage in `Jenkinsfile` for the exact, current list), generates and validates a `release-manifest.json`, and records simulated SIT deployment and UAT promotion evidence. The final `release-evidence.json` aggregates all of it and explicitly preserves the distinction between quality-gate-passed, deployment-authorized, deployment-executed and release-validated — see the schema fields `qualityGate`, `deploymentAuthorization`, `sit`, `uat`, `promotionChain` and `releaseValidated` in `Jenkinsfile`'s `Release Evidence` stage for the exact, current structure. These files are archived as Jenkins build artifacts on every `main` build that reaches this stage, whichever authorization outcome occurred.
 
 ## Security Model
 
