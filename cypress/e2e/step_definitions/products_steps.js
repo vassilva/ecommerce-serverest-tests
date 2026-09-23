@@ -89,6 +89,12 @@ When("the products list is fetched via API call", () => {
 
 When("the user searches for a valid product in the search bar", () => {
   cy.get("@primaryProductName").then((productName) => {
+    cy.intercept({
+      method: "GET",
+      pathname: "/produtos",
+      query: { nome: productName },
+    }).as("validProductSearchRequest");
+
     HomePage.waitForPageReady();
     HomePage.searchProduct(productName);
     HomePage.elements.productCardByName(productName).should("be.visible");
@@ -153,18 +159,20 @@ When("the user decreases the product quantity", () => {
 });
 
 Then("the products search API request should succeed with status 200", () => {
-  cy.waitForRequest("productsSearchRequest", { validateResponse: true }).then((interception) => {
-    expect(interception.response, "Products search response should exist").to.exist;
-    expect(interception.response.statusCode, "Products search status").to.eq(200);
-    expect(interception.response.headers["content-type"], "Response content type").to.include(
-      "application/json"
-    );
-  });
+  cy.waitForRequest("validProductSearchRequest", { validateResponse: true }).then(
+    (interception) => {
+      expect(interception.response, "Products search response should exist").to.exist;
+      expect(interception.response.statusCode, "Products search status").to.eq(200);
+      expect(interception.response.headers["content-type"], "Response content type").to.include(
+        "application/json"
+      );
+    }
+  );
 });
 
 Then("the products search API response should contain the searched product", () => {
   cy.get("@primaryProductName").then((productName) => {
-    cy.get("@productsSearchRequest")
+    cy.get("@validProductSearchRequest")
       .its("response.body")
       .then((body) => {
         expect(body.produtos, "Products array should exist").to.be.an("array");
