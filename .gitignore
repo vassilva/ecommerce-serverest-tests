@@ -10,3 +10,5 @@ smoke-test-output.log
 cypress.env.json
 *.log
 .simulated-release/
+.claude/
+jmeter/
