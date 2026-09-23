@@ -98,77 +98,60 @@ pipeline {
       }
       steps {
         script {
-          // Business decision (APPROVE/REJECT) is captured as a normal,
-          // non-exceptional input() return value - never inferred from
-          // catching the input step's own Abort action. The only
-          // exceptional path handled here is the surrounding timeout
-          // genuinely elapsing; any other interruption (a real Jenkins
-          // build Abort, an administrative cancellation, anything else)
-          // is deliberately rethrown so Jenkins preserves its own normal
-          // interruption/ABORTED semantics untouched by this business logic.
+          // Business decision (APPROVE/REJECT) is captured exclusively as
+          // a normal, non-exceptional input() return value. Deliberately
+          // no try/catch around timeout()/input() at all: this Jenkins
+          // instance does not have FlowInterruptedException.getCauses()
+          // approved in Script Security, and this pipeline must not
+          // require Script Approval or weaken the sandbox to fix that.
+          // Architectural decision: this pipeline no longer attempts to
+          // distinguish an authorization timeout from an external Jenkins
+          // Abort inside sandboxed Groovy. Both simply propagate as
+          // Jenkins' own native interruption/ABORTED handling - no code
+          // here touches FlowInterruptedException in any way, so no
+          // sandbox-restricted method is ever called. See README
+          // "Manual deployment authorization" for the full rationale.
           def decision = null
           def submitter = null
-          def outcome = null
 
-          try {
-            // Independent, deliberately long lab timeout for the human
-            // wait - see README for rationale. Scoped to this stage only;
-            // it does not borrow from or extend any automated stage's own
-            // 15-minute budget, and no automated stage's budget is
-            // consumed by this wait either.
-            timeout(time: 24, unit: 'HOURS') {
-              def result = input(
-                message: 'Quality gates passed. Authorize progression to the simulated SIT deployment gate? This is a lab simulation - no real SIT/UAT environment will be contacted either way.',
-                parameters: [
-                  choice(
-                    name: 'DECISION',
-                    choices: ['APPROVE', 'REJECT'],
-                    description: 'Approve or reject progression to the simulated SIT deployment gate.'
-                  )
-                ],
-                submitterParameter: 'SUBMITTED_BY'
-              )
-              // Verified against the pipeline-input-step plugin's own
-              // source: combining `parameters` with `submitterParameter`
-              // always yields a Map with at least two entries (the
-              // submitterParameter key is inserted before the
-              // single-value collapse check), so this is a reliable Map
-              // in practice, not an assumption. The String branch is a
-              // defensive fallback only, kept so an unexpected shape
-              // fails safe (decision stays null, treated as REJECT below)
-              // rather than throwing.
-              if (result instanceof Map) {
-                decision = result.get('DECISION')
-                submitter = result.get('SUBMITTED_BY')
-              } else if (result instanceof String) {
-                decision = result
-              }
+          // Independent, deliberately long lab timeout for the human
+          // wait - see README for rationale. Scoped to this stage only;
+          // it does not borrow from or extend any automated stage's own
+          // 15-minute budget, and no automated stage's budget is
+          // consumed by this wait either. If it elapses, or the build is
+          // aborted externally, the resulting interruption is not caught
+          // here - it propagates normally and Jenkins marks the build
+          // ABORTED, exactly as it would for any other stage.
+          timeout(time: 24, unit: 'HOURS') {
+            def result = input(
+              message: 'Quality gates passed. Authorize progression to the simulated SIT deployment gate? This is a lab simulation - no real SIT/UAT environment will be contacted either way.',
+              parameters: [
+                choice(
+                  name: 'DECISION',
+                  choices: ['APPROVE', 'REJECT'],
+                  description: 'Approve or reject progression to the simulated SIT deployment gate.'
+                )
+              ],
+              submitterParameter: 'SUBMITTED_BY'
+            )
+            // Already proven on this instance by the live APPROVE run:
+            // combining a `choice` parameter with `submitterParameter`
+            // returns a Map. The String branch is a defensive fallback
+            // only, kept so an unexpected shape fails safe (decision
+            // stays null, treated as REJECT below) rather than throwing.
+            if (result instanceof Map) {
+              decision = result.get('DECISION')
+              submitter = result.get('SUBMITTED_BY')
+            } else if (result instanceof String) {
+              decision = result
             }
-            // Anything other than an explicit APPROVE - including REJECT
-            // and any unparseable/unexpected return shape - is treated as
-            // rejected. This always fails toward the non-deploying
-            // direction, never toward an unintended approval.
-            outcome = (decision == 'APPROVE') ? 'approved' : 'rejected'
-          } catch (org.jenkinsci.plugins.workflow.steps.FlowInterruptedException e) {
-            // Positive, structured detection only. Verified against the
-            // workflow-basic-steps plugin's own TimeoutStepExecution
-            // source: when a timeout() step's own configured duration
-            // elapses, it raises exactly this FlowInterruptedException
-            // with an ExceededTimeout cause - this is the same structured
-            // check Jenkins itself uses internally, not an invented
-            // heuristic and not exception-message parsing.
-            boolean isAuthTimeout = e.getCauses().any {
-              it instanceof org.jenkinsci.plugins.workflow.steps.TimeoutStepExecution.ExceededTimeout
-            }
-            if (!isAuthTimeout) {
-              // Not positively the authorization timeout - an external or
-              // administrative interruption. Rethrow unchanged: do not
-              // convert it into a business decision or a controlled
-              // SUCCESS/UNSTABLE result.
-              throw e
-            }
-            outcome = 'timed-out'
           }
+
+          // Anything other than an explicit APPROVE - including REJECT
+          // and any unparseable/unexpected return shape - is treated as
+          // rejected. This always fails toward the non-deploying
+          // direction, never toward an unintended approval.
+          def outcome = (decision == 'APPROVE') ? 'approved' : 'rejected'
 
           env.DEPLOYMENT_AUTH_STATUS = outcome
           env.DEPLOYMENT_AUTH_SUBMITTER = submitter ?: ''
@@ -178,11 +161,6 @@ pipeline {
             // Testing passed; deployment was intentionally not authorized.
             // This is not a defect - the build result must not imply one.
             currentBuild.result = 'SUCCESS'
-          } else if (outcome == 'timed-out') {
-            // Nobody made a decision within the approval window. Distinct
-            // from an explicit rejection: flagged UNSTABLE so it is visible
-            // without being reported as a test or pipeline failure.
-            currentBuild.result = 'UNSTABLE'
           }
         }
       }
