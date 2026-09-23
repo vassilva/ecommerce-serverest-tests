@@ -98,56 +98,80 @@ pipeline {
       }
       steps {
         script {
-          def outcome = 'timed-out'
-          def approver = null
+          // Business decision (APPROVE/REJECT) is captured as a normal,
+          // non-exceptional input() return value - never inferred from
+          // catching the input step's own Abort action. The only
+          // exceptional path handled here is the surrounding timeout
+          // genuinely elapsing; any other interruption (a real Jenkins
+          // build Abort, an administrative cancellation, anything else)
+          // is deliberately rethrown so Jenkins preserves its own normal
+          // interruption/ABORTED semantics untouched by this business logic.
+          def decision = null
+          def submitter = null
+          def outcome = null
+
           try {
             // Independent, deliberately long lab timeout for the human
-            // wait - see README for rationale. This timeout is scoped to
-            // this stage only; it does not borrow from or extend any
-            // automated stage's own 15-minute budget, and no automated
-            // stage's budget is consumed by this wait either.
+            // wait - see README for rationale. Scoped to this stage only;
+            // it does not borrow from or extend any automated stage's own
+            // 15-minute budget, and no automated stage's budget is
+            // consumed by this wait either.
             timeout(time: 24, unit: 'HOURS') {
               def result = input(
-                message: 'Quality gates passed. Authorize simulated deployment progression? No real SIT/UAT environment will be contacted.',
-                ok: 'Authorize Simulated Deployment',
-                submitterParameter: 'APPROVER_ID'
+                message: 'Quality gates passed. Authorize progression to the simulated SIT deployment gate? This is a lab simulation - no real SIT/UAT environment will be contacted either way.',
+                parameters: [
+                  choice(
+                    name: 'DECISION',
+                    choices: ['APPROVE', 'REJECT'],
+                    description: 'Approve or reject progression to the simulated SIT deployment gate.'
+                  )
+                ],
+                submitterParameter: 'SUBMITTED_BY'
               )
-              // With only submitterParameter (no other `parameters`), the
-              // input step's own documented behavior returns a Map keyed by
-              // that parameter name. Handled defensively in case a given
-              // Jenkins/workflow-plugin version returns a plain value
-              // instead - approvedBy is left null rather than guessed if
-              // neither shape is found.
+              // Verified against the pipeline-input-step plugin's own
+              // source: combining `parameters` with `submitterParameter`
+              // always yields a Map with at least two entries (the
+              // submitterParameter key is inserted before the
+              // single-value collapse check), so this is a reliable Map
+              // in practice, not an assumption. The String branch is a
+              // defensive fallback only, kept so an unexpected shape
+              // fails safe (decision stays null, treated as REJECT below)
+              // rather than throwing.
               if (result instanceof Map) {
-                approver = result.get('APPROVER_ID')
+                decision = result.get('DECISION')
+                submitter = result.get('SUBMITTED_BY')
               } else if (result instanceof String) {
-                approver = result
+                decision = result
               }
             }
-            outcome = 'approved'
-          } catch (Throwable t) {
-            // Best-effort distinction: a timeout-caused interruption is
-            // identified by inspecting the interruption's own causes for a
-            // type whose simple name mentions "Timeout" - matched by simple
-            // name (not a hardcoded fully-qualified class) since the exact
-            // package has moved across workflow-plugin versions. Anything
-            // not positively identified as a timeout is recorded as an
-            // explicit rejection. This is a disclosed, best-effort
-            // classification - see README for the known edge case (an
-            // unrelated administrative build abort would also land here)
-            // and the recommended follow-up controlled validation on main.
-            def isTimeout = false
-            try {
-              def causes = t.hasProperty('causes') ? t.causes : []
-              isTimeout = causes.any { it != null && it.getClass().getSimpleName().contains('Timeout') }
-            } catch (Throwable ignored) {
-              isTimeout = false
+            // Anything other than an explicit APPROVE - including REJECT
+            // and any unparseable/unexpected return shape - is treated as
+            // rejected. This always fails toward the non-deploying
+            // direction, never toward an unintended approval.
+            outcome = (decision == 'APPROVE') ? 'approved' : 'rejected'
+          } catch (org.jenkinsci.plugins.workflow.steps.FlowInterruptedException e) {
+            // Positive, structured detection only. Verified against the
+            // workflow-basic-steps plugin's own TimeoutStepExecution
+            // source: when a timeout() step's own configured duration
+            // elapses, it raises exactly this FlowInterruptedException
+            // with an ExceededTimeout cause - this is the same structured
+            // check Jenkins itself uses internally, not an invented
+            // heuristic and not exception-message parsing.
+            boolean isAuthTimeout = e.getCauses().any {
+              it instanceof org.jenkinsci.plugins.workflow.steps.TimeoutStepExecution.ExceededTimeout
             }
-            outcome = isTimeout ? 'timed-out' : 'rejected'
+            if (!isAuthTimeout) {
+              // Not positively the authorization timeout - an external or
+              // administrative interruption. Rethrow unchanged: do not
+              // convert it into a business decision or a controlled
+              // SUCCESS/UNSTABLE result.
+              throw e
+            }
+            outcome = 'timed-out'
           }
 
           env.DEPLOYMENT_AUTH_STATUS = outcome
-          env.DEPLOYMENT_AUTH_APPROVER = approver ?: ''
+          env.DEPLOYMENT_AUTH_SUBMITTER = submitter ?: ''
           env.DEPLOYMENT_AUTH_TIMESTAMP = new Date().format("yyyy-MM-dd'T'HH:mm:ss'Z'", TimeZone.getTimeZone('UTC'))
 
           if (outcome == 'rejected') {
@@ -184,7 +208,7 @@ pipeline {
             const record = {
               required: true,
               status: process.env.DEPLOYMENT_AUTH_STATUS,
-              approvedBy: process.env.DEPLOYMENT_AUTH_APPROVER && process.env.DEPLOYMENT_AUTH_APPROVER !== '' ? process.env.DEPLOYMENT_AUTH_APPROVER : null,
+              submittedBy: process.env.DEPLOYMENT_AUTH_SUBMITTER && process.env.DEPLOYMENT_AUTH_SUBMITTER !== '' ? process.env.DEPLOYMENT_AUTH_SUBMITTER : null,
               timestampUtc: process.env.DEPLOYMENT_AUTH_TIMESTAMP,
               sourceCommit: process.env.GIT_COMMIT,
               jenkinsBuildNumber: process.env.BUILD_NUMBER,
@@ -487,7 +511,7 @@ pipeline {
             let deploymentAuthorization = {
               required: true,
               status: 'not-reached',
-              approvedBy: null,
+              submittedBy: null,
               timestampUtc: null,
               meaning: 'A passing Main Sanity quality gate does not by itself authorize deployment. This field records the separate, explicit human decision that followed it.'
             };
@@ -496,7 +520,7 @@ pipeline {
               deploymentAuthorization = {
                 required: true,
                 status: a.status,
-                approvedBy: a.approvedBy === undefined ? null : a.approvedBy,
+                submittedBy: a.submittedBy === undefined ? null : a.submittedBy,
                 timestampUtc: a.timestampUtc,
                 meaning: a.meaning
               };
